@@ -1,7 +1,7 @@
 /* Lo que ve cada jugador: sus cartas, lo jugado en la mesa y las acciones que tiene disponibles. */
-import type { Carta } from '../engine/cartas';
-import { accionesPosibles, Config, Equipo, FinDuelo, quienesActuan, TipoRonda } from '../engine/juego';
-import { asientoDe, Evento, puedeIndicar, Sala } from './sala';
+import type { Carta } from '../engine/cartas.js';
+import { accionesPosibles, type Config, type Equipo, type FinDuelo, quienesActuan, type TipoRonda } from '../engine/juego.js';
+import { asientoDe, type Evento, puedeIndicar, type Sala } from './sala.js';
 
 export interface VistaDuelo {
   id: number;

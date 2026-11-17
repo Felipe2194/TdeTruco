@@ -2,11 +2,11 @@
  * Salas de juego: jugadores, bots, eventos para la interfaz y avance automático.
  * Todo es puro y serializable a JSON: la sala se guarda entera en el almacenamiento.
  */
-import { decidirBot, Indicacion, senaDeMano } from '../engine/bot';
+import { decidirBot, type Indicacion, senaDeMano } from '../engine/bot.js';
 import {
-  Accion, Config, Efecto, Partida, aplicar, dueloDe, equipoDe, ErrorJuego, manoTerminada, nuevaPartida,
+  type Accion, type Config, type Efecto, type Partida, aplicar, dueloDe, equipoDe, ErrorJuego, manoTerminada, nuevaPartida,
   pendienteActivo, repartir,
-} from '../engine/juego';
+} from '../engine/juego.js';
 
 export const NOMBRES_BOT = ['Ramón', 'Facundo', 'Don Chacho', 'Anselmo', 'Tobías', 'Severino', 'Martín', 'Don Eusebio'];
 export const SENAS = ['anchoEspada', 'anchoBasto', 'sieteEspada', 'sieteOro', 'tres', 'dos', 'anchoFalso', 'envido', 'nada'];

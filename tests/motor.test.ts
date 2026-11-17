@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Carta, poder, tantoEnvido } from '../src/engine/cartas';
+import { type Carta, poder, tantoEnvido } from '../src/engine/cartas';
 import {
-  Config, Partida, accionesPosibles, aplicar, dueloDe, enZonaPicaPica, ganadorDuelo, manoTerminada,
+  type Config, type Partida, accionesPosibles, aplicar, dueloDe, enZonaPicaPica, ganadorDuelo, manoTerminada,
   nuevaPartida, offsetPicaPica, quienesActuan, repartir, siguientesEnvido, valorNoQuerido, valorQuerido,
 } from '../src/engine/juego';
 import { decidirBot } from '../src/engine/bot';

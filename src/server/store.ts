@@ -3,7 +3,7 @@
  * - En producción: Redis por REST (Upstash, desde el Marketplace de Vercel), con escritura condicional por versión.
  * - En desarrollo (sin variables de entorno): memoria del proceso.
  */
-import type { Sala } from './sala';
+import type { Sala } from './sala.js';
 
 export interface Store {
   readonly tipo: 'memoria' | 'redis';

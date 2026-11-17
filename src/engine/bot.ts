@@ -1,8 +1,8 @@
 /* Jugador automático: decide con información propia (sus cartas y lo que hay en la mesa). */
-import { Carta, poder, tantoEnvido } from './cartas';
+import { type Carta, poder, tantoEnvido } from './cartas.js';
 import {
-  Accion, Partida, accionesPosibles, dueloDe, equipoDe, pendienteActivo, siguientesEnvido,
-} from './juego';
+  type Accion, type Partida, accionesPosibles, dueloDe, equipoDe, pendienteActivo, siguientesEnvido,
+} from './juego.js';
 
 export type Indicacion = 'voy' | 'veni';
 

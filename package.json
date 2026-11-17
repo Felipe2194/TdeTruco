@@ -1,7 +1,8 @@
 {
   "name": "tdetruco",
-  "private": true,
   "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "description": "Truco argentino multijugador con señas, en una pulpería",
   "scripts": {
     "dev": "vite",

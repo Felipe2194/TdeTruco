@@ -7,7 +7,7 @@
  *   en pica-pica (3v3 y 4v4, zona media del partido) hay un duelo 1v1 por cada pareja enfrentada.
  * - El motor es puro: no conoce la red ni los tiempos. Cada acción devuelve efectos para la interfaz.
  */
-import { Carta, mismaCarta, nuevoMazo, poder, tantoEnvido } from './cartas';
+import { type Carta, mismaCarta, nuevoMazo, poder, tantoEnvido } from './cartas.js';
 
 export type Equipo = 0 | 1;
 export const equipoDe = (asiento: number): Equipo => (asiento % 2) as Equipo;

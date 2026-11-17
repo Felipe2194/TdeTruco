@@ -1,5 +1,5 @@
 // Vercel Function: adapta la petición HTTP a la API de salas.
-import { manejar } from '../src/server/api';
+import { manejar } from '../src/server/api.js';
 
 interface Req {
   method?: string;

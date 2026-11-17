@@ -3,14 +3,14 @@
  *   GET  /api/sala?c=CODIGO&t=TOKEN&desde=SEQ   → vista (y hace avanzar a los bots)
  *   POST /api/sala  { op, ... }                 → acción y vista actualizada
  */
-import type { Palo } from '../engine/cartas';
-import { Accion, CantoEnvido, ErrorJuego } from '../engine/juego';
+import type { Palo } from '../engine/cartas.js';
+import { type Accion, type CantoEnvido, ErrorJuego } from '../engine/juego.js';
 import {
-  accionJugador, crearSala, decir, ErrorSala, hacerSena, iniciar, limpiarNombre, ponerBot, revancha, Sala, sentarse,
+  accionJugador, crearSala, decir, ErrorSala, hacerSena, iniciar, limpiarNombre, ponerBot, revancha, type Sala, sentarse,
   tick, unirse, validarConfig,
-} from './sala';
-import { obtenerStore } from './store';
-import { construirVista } from './vista';
+} from './sala.js';
+import { obtenerStore } from './store.js';
+import { construirVista } from './vista.js';
 
 export interface Respuesta {
   status: number;
