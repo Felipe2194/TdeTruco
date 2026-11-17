@@ -1,23 +1,39 @@
 # TdeTruco
 
-Truco argentino multijugador (2v2, 3v3 y 4v4) con vista en primera persona, señas entre compañeros y marcador con fósforos.
+Truco argentino multijugador en una pulpería: 1v1, 2v2, 3v3 y 4v4, con vista en primera persona, gauchos que hacen señas, "Voy" / "Vení" con el compañero y marcador con fósforos.
 
-## Estado actual: prototipo visual
-
-- `prototipos/2d.html`: **diseño elegido**. Escena 2.5D ilustrada en una pulpería, con tres gauchos, cartas de baraja española, señas, "Voy" / "Vení" y paneles plegables.
-- `prototipos/3d.html`: alternativa 3D (Three.js) que se usó para comparar.
-- `prototipos/comun.js`: reglas simplificadas (2v2, a 30, sin flor), bots e interfaz compartida.
-
-## Probarlo localmente
+## Cómo correrlo
 
 ```bash
-npx http-server prototipos -p 5173 -c-1
-# abrir http://localhost:5173/2d.html
+npm install
+npm run dev          # http://localhost:5173 (servidor de juego incluido)
+npm test             # motor de reglas y salas
+npm run build        # build de producción
+npm run capturas     # regenera las imágenes de diseño en ./diseno (con el dev server en :5180)
 ```
 
-## Reglas acordadas
+## Reglas implementadas
 
-- Partido a 30 (malas y buenas de 15), sin flor.
-- Envido, real envido y falta envido. Truco, retruco y vale cuatro. "El envido está primero".
-- Pica-pica ("punta y hacha") en 3v3 y 4v4.
-- Señas por botones, que ejecuta el avatar animado.
+- Baraja española de 40 cartas con la jerarquía del truco, sin flor.
+- Partido a 15 o a 30 (malas y buenas).
+- **Envido**: envido, real envido y falta envido, con todas las cadenas; querido y no querido; "son buenas"; el empate lo gana la mano.
+- **Truco**: truco, retruco y vale cuatro; solo sube quien tiene el quiero; "el envido está primero".
+- Irse al mazo (con el punto extra en primera si no se cantó envido), pardas y orden antihorario.
+- **Pica-pica ("punta y hacha")** en 3v3 y 4v4: en la zona media del partido se alterna una redonda con una mano de duelos 1v1.
+- Bots que completan los asientos vacíos y respetan el "Voy" / "Vení" de su compañero humano.
+
+## Arquitectura
+
+```
+src/engine/    Motor de reglas puro (TypeScript): juego.ts, cartas.ts, bot.ts
+src/server/    Salas: jugadores, bots, eventos, vista filtrada por jugador, almacenamiento
+api/sala.ts    Vercel Function que expone la API de salas
+src/client/    Interfaz (Vite + TypeScript): mesa, HUD, pantallas, arte (cartas, gauchos, pulpería)
+tests/         Vitest: reglas, casos borde y partidas completas simuladas
+diseno/        Imágenes de cada parte del juego para rediseñar (ver diseno/README.md)
+prototipos/    Prototipos visuales originales (2D y 3D)
+```
+
+- **Servidor autoritativo**: cada jugador recibe solo sus cartas. Las acciones se validan con el motor.
+- **Comunicación**: HTTP con *polling* (~700 ms), suficiente para un juego por turnos. Los bots avanzan cuando alguien consulta el estado, así que no hace falta un proceso corriendo aparte.
+- **Almacenamiento**: Redis por REST (Upstash) si están definidas `KV_REST_API_URL` y `KV_REST_API_TOKEN` (o `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN`). Sin esas variables usa memoria, que sirve para desarrollo local.
