@@ -29,19 +29,48 @@ let primeraVista = true;
 let firmaPantalla = '';
 
 mesa.alJugar = (carta) => enviar('accion', { tipo: 'jugar', carta });
-mesa.alCartel = (texto, equipo) => {
-  cartel.textContent = texto;
-  cartel.className = `visible${equipo === undefined ? '' : ' e' + equipo}`;
-  clearTimeout(Number(cartel.dataset.t));
-  cartel.dataset.t = String(setTimeout(() => (cartel.className = ''), 1900));
+// Carteles de puntos: en cola, para que no se pisen (por ejemplo, el envido y después el truco).
+const colaCarteles: { texto: string; equipo?: number; detalle?: string }[] = [];
+let mostrandoCartel = false;
+function siguienteCartel() {
+  const c = colaCarteles.shift();
+  if (!c) {
+    mostrandoCartel = false;
+    return;
+  }
+  mostrandoCartel = true;
+  const nos = vista && vista.yo >= 0 ? vista.yo % 2 : 0;
+  // "Cómo viene": el tanteador después de sumar.
+  const viene = vista && c.equipo !== undefined ? `Van ${vista.puntos[nos]} a ${vista.puntos[1 - nos]}` : '';
+  const detalle = [c.detalle, viene].filter(Boolean).join(' · ');
+  cartel.innerHTML = '';
+  const titulo = document.createElement('div');
+  titulo.textContent = c.texto;
+  cartel.appendChild(titulo);
+  if (detalle) {
+    const sub = document.createElement('small');
+    sub.textContent = detalle;
+    cartel.appendChild(sub);
+  }
+  cartel.className = `visible${c.equipo === undefined ? '' : ' e' + c.equipo}`;
+  setTimeout(() => {
+    cartel.className = '';
+    setTimeout(siguienteCartel, 220);
+  }, colaCarteles.length ? 1500 : 2100);
+}
+mesa.alCartel = (texto, equipo, detalle) => {
+  colaCarteles.push({ texto, equipo, detalle });
+  if (!mostrandoCartel) siguienteCartel();
 };
 
-async function enviar(op: string, datos: Record<string, unknown> = {}) {
-  if (!conexion) return;
+async function enviar(op: string, datos: Record<string, unknown> = {}): Promise<boolean> {
+  if (!conexion) return false;
   try {
     await conexion.enviar(op, datos);
+    return true;
   } catch (e) {
     mesa.alCartel(e instanceof ErrorApi ? e.message : 'Sin conexión');
+    return false;
   }
 }
 
@@ -106,7 +135,7 @@ function alActualizar(v: Vista) {
     return;
   }
   vista = v;
-  (window as unknown as { __truco: unknown }).__truco = { vista: v }; // para pruebas automáticas
+  (window as unknown as { __truco: unknown }).__truco = { vista: v, mesa }; // para pruebas automáticas
   if (v.fase === 'lobby') {
     hud.mostrar(false);
     mostrarPantalla(true);

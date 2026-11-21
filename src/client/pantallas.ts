@@ -1,7 +1,7 @@
 /* Pantallas fuera de la mesa: inicio, lobby y fin de partido. */
 import type { Config } from '../engine/juego';
 import type { Vista } from '../server/vista';
-import { COLOR_EQUIPO, NOMBRE_EQUIPO } from './arte/gauchos';
+import { COLOR_EQUIPO, NOMBRE_EQUIPO } from './arte/personajes';
 import { escapar } from './mesa';
 
 export interface OpcionesInicio {
@@ -17,7 +17,7 @@ export function pantallaInicio(el: HTMLElement, o: OpcionesInicio) {
   const config: Config = { jugadores: 4, objetivo: 30, picaPica: true };
   el.innerHTML = `
     <div class="tarjeta">
-      <div class="logo">TdeTruco<small>Truco argentino en la pulpería</small></div>
+      <div class="logo">TdeTruco<small>Truco argentino · 1v1 a 4v4</small></div>
       <div class="campo">
         <label for="nombre">Tu nombre</label>
         <input type="text" id="nombre" maxlength="18" placeholder="¿Cómo te dicen?" value="${escapar(localStorage.getItem('truco-nombre') ?? '')}">
@@ -39,8 +39,7 @@ export function pantallaInicio(el: HTMLElement, o: OpcionesInicio) {
       </div>
       <div class="separador">o entrá a una sala</div>
       <div class="fila" style="margin-top:6px">
-        <input type="text" id="codigo" maxlength="4" placeholder="CÓDIGO" value="${escapar(o.codigo ?? '')}"
-          style="text-transform:uppercase;letter-spacing:.3em;text-align:center;padding:10px;border-radius:10px;border:1px solid rgba(232,196,106,.35);background:rgba(255,235,200,.06);color:var(--crema);font-size:18px;font-weight:800">
+        <input type="text" id="codigo" maxlength="4" placeholder="CÓDIGO" value="${escapar(o.codigo ?? '')}">
         <button class="btn grande" data-unirse>Unirme</button>
       </div>
       <div class="error" data-error>${escapar(o.error ?? '')}</div>
@@ -109,7 +108,7 @@ export function pantallaLobby(el: HTMLElement, v: Vista, o: OpcionesLobby) {
   }).join('');
   el.innerHTML = `
     <div class="tarjeta">
-      <div class="logo" style="font-size:34px">Sala<small>${modo} · a ${v.config.objetivo}${v.config.jugadores >= 6 && v.config.picaPica ? ' · con pica-pica' : ''}</small></div>
+      <div class="logo" style="font-size:28px">Sala<small>${modo} · a ${v.config.objetivo}${v.config.jugadores >= 6 && v.config.picaPica ? ' · con pica-pica' : ''}</small></div>
       <div class="codigo">${v.codigo}</div>
       <div class="campo">
         <label>Invitá con este enlace</label>
@@ -140,7 +139,7 @@ export function pantallaFin(el: HTMLElement, v: Vista, o: { alRevancha: () => vo
   const nos = v.yo % 2 === g;
   el.innerHTML = `
     <div class="tarjeta" style="text-align:center">
-      <div class="logo" style="font-size:30px">${nos ? '¡Ganamos!' : 'Perdimos…'}</div>
+      <div class="logo" style="font-size:26px">${nos ? '¡Ganamos!' : 'Perdimos…'}</div>
       <div class="ganador e${g}">Equipo ${NOMBRE_EQUIPO[g]}</div>
       <div style="font-size:22px;font-weight:800;margin:8px 0 4px">${v.puntos[0]} a ${v.puntos[1]}</div>
       <div class="nota">${nos ? 'Se sirven unos mates para festejar.' : 'La revancha se juega ya mismo.'}</div>

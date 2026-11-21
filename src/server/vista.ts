@@ -1,7 +1,7 @@
 /* Lo que ve cada jugador: sus cartas, lo jugado en la mesa y las acciones que tiene disponibles. */
 import type { Carta } from '../engine/cartas.js';
 import { accionesPosibles, type Config, type Equipo, type FinDuelo, quienesActuan, type TipoRonda } from '../engine/juego.js';
-import { asientoDe, type Evento, puedeIndicar, type Sala } from './sala.js';
+import { asientoDe, type Evento, puedeHacerSena, puedeIndicar, type Sala } from './sala.js';
 
 export interface VistaDuelo {
   id: number;
@@ -46,7 +46,7 @@ export function construirVista(sala: Sala, token: string | null, desde = 0): Vis
   if (yo >= 0 && p && sala.fase === 'jugando') {
     acciones.push(...accionesPosibles(p, yo));
     if (puedeIndicar(sala, yo)) acciones.push('voy', 'veni');
-    acciones.push('sena');
+    if (puedeHacerSena(sala, yo)) acciones.push('sena');
   }
   return {
     codigo: sala.codigo,

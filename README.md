@@ -1,6 +1,6 @@
 # TdeTruco
 
-Truco argentino multijugador en una pulpería: 1v1, 2v2, 3v3 y 4v4, con vista en primera persona, gauchos que hacen señas, "Voy" / "Vení" con el compañero y marcador con fósforos.
+Truco argentino multijugador con estética retro pixel / CRT: 1v1, 2v2, 3v3 y 4v4, con vista en primera persona, personajes en pixel art que hacen señas, "Voy" / "Vení" con el compañero y marcador con fósforos.
 
 ## Cómo correrlo
 
@@ -28,10 +28,11 @@ npm run capturas     # regenera las imágenes de diseño en ./diseno (con el dev
 src/engine/    Motor de reglas puro (TypeScript): juego.ts, cartas.ts, bot.ts
 src/server/    Salas: jugadores, bots, eventos, vista filtrada por jugador, almacenamiento
 api/sala.ts    Vercel Function que expone la API de salas
-src/client/    Interfaz (Vite + TypeScript): mesa, HUD, pantallas, arte (cartas, gauchos, pulpería)
+src/client/    Interfaz (Vite + TypeScript): mesa, HUD, pantallas, arte en pixel art (cartas, personajes, mate) en arte/pixel.ts
 tests/         Vitest: reglas, casos borde y partidas completas simuladas
 diseno/        Imágenes de cada parte del juego para rediseñar (ver diseno/README.md)
-prototipos/    Prototipos visuales originales (2D y 3D)
+prototipos/    Prototipos visuales originales (2D y 3D) y la exploración archivada de 18 estilos
+mockup.html    Mockup jugable de los 8 estilos candidatos (el elegido fue Retro Pixel / CRT)
 ```
 
 - **Servidor autoritativo**: cada jugador recibe solo sus cartas. Las acciones se validan con el motor.

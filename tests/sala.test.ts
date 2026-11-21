@@ -24,6 +24,15 @@ describe('salas', () => {
     expect(v3.miMano).toHaveLength(3);
   });
 
+  it('las señas solo están cuando hay compañero en el duelo', async () => {
+    const uno = await post({ op: 'crear', nombre: 'Felipe', conBots: true, config: { jugadores: 2, objetivo: 15 } });
+    expect(uno.vista.acciones).not.toContain('sena');
+    const r = await manejar('POST', {}, { op: 'sena', codigo: uno.vista.codigo, token: uno.token, clave: 'tres' });
+    expect(r.status).toBe(400);
+    const dos = await post({ op: 'crear', nombre: 'Felipe', conBots: true, config: { jugadores: 4, objetivo: 15 } });
+    expect(dos.vista.acciones).toContain('sena');
+  });
+
   it('una partida contra bots llega al final', async () => {
     const { token, vista } = await post({ op: 'crear', nombre: 'Felipe', conBots: true, config: { jugadores: 6, objetivo: 15 } });
     const codigo = vista.codigo;

@@ -1,7 +1,7 @@
 /* Paneles de la interfaz: marcador, información, acciones y señas. */
 import type { Vista, VistaDuelo } from '../server/vista';
 import { porotosSVG } from './arte/escena';
-import { SENAS } from './arte/gauchos';
+import { SENAS } from './arte/personajes';
 
 const NIVEL = ['', 'Sin truco', 'Truco', 'Retruco', 'Vale cuatro'];
 const SUBIR = ['', 'Truco', 'Retruco', 'Vale cuatro', ''];
@@ -31,13 +31,14 @@ export class Hud {
       </div>
       <div id="info" class="panel">
         <div><span>Mano:</span> <b data-i="mano"></b></div>
+        <div><span>Reparte:</span> <b data-i="reparte"></b></div>
         <div><span>Ronda:</span> <b data-i="ronda"></b></div>
         <div><span>En juego:</span> <b data-i="truco"></b></div>
         <div><span>Bazas:</span> <b data-i="bazas"></b></div>
         <div class="sala" data-i="sala"></div>
       </div>
       <div id="senas" class="panel">
-        <button class="cabecera" data-plegar="senas"><span class="titulo">Señas <small>· las hace tu gaucho</small></span><span class="chev">▾</span></button>
+        <button class="cabecera" data-plegar="senas"><span class="titulo">Señas <small>· las hace tu personaje</small></span><span class="chev">▾</span></button>
         <div class="cuerpo"><div class="grilla">
           ${SENAS.map((s) => `<button class="sena" data-sena="${s.k}"><b>${s.nombre}</b><small>${s.gesto}</small></button>`).join('')}
         </div></div>
@@ -87,7 +88,9 @@ export class Hud {
     }
     // Información
     const d = this.miDuelo(v);
-    this.q('[data-i="mano"]').textContent = v.jugadores[v.mano]?.nombre ?? '';
+    const reparte = (v.mano - 1 + v.config.jugadores) % v.config.jugadores;
+    this.q('[data-i="mano"]').textContent = v.mano === v.yo ? 'Vos (ganás los empates)' : v.jugadores[v.mano]?.nombre ?? '';
+    this.q('[data-i="reparte"]').textContent = reparte === v.yo ? 'Vos' : v.jugadores[reparte]?.nombre ?? '';
     this.q('[data-i="ronda"]').textContent = v.tipoRonda === 'picapica' ? 'Pica-pica' : 'Redonda';
     this.q('[data-i="truco"]').textContent = d ? (d.truco.nivel === 1 ? '1 punto' : `${NIVEL[d.truco.nivel]} (${d.truco.nivel})`) : '—';
     this.q('[data-i="bazas"]').innerHTML = [0, 1, 2].map((i) => {
@@ -126,7 +129,8 @@ export class Hud {
     const hayCompanero = v.config.jugadores > 2;
     this.q('[data-companero]').style.display = hayCompanero ? '' : 'none';
     this.raiz.querySelectorAll<HTMLButtonElement>('[data-decir]').forEach((b) => (b.disabled = !acc.has('voy')));
-    this.raiz.querySelectorAll<HTMLButtonElement>('[data-sena]').forEach((b) => (b.disabled = !acc.has('sena')));
+    // Las señas son para el compañero: en 1v1 y en pica-pica no hay a quién hacérselas.
+    this.q('#senas').style.display = acc.has('sena') ? '' : 'none';
     this.q('#estado').textContent = this.textoEstado(v, d, responder);
   }
 

@@ -8,8 +8,7 @@
     "verbatimModuleSyntax": true,
     "noEmit": true,
     "isolatedModules": true,
-    "skipLibCheck": true,
-    "types": ["vite/client", "node"]
+    "skipLibCheck": true
   },
   "include": ["src", "api", "tests", "vite.config.mts"]
 }

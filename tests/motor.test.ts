@@ -155,6 +155,29 @@ describe('envido', () => {
   });
 });
 
+describe('mano y reparto', () => {
+  it('en 1v1 la mano se alterna: el que reparte no es mano', () => {
+    const p = nuevaPartida(cfg(2), 0);
+    repartir(p);
+    expect(p.mano).toBe(0);
+    expect(p.ronda!.duelos[0].asientos).toEqual([0, 1]);
+    repartir(p);
+    expect(p.mano).toBe(1);
+    expect(p.ronda!.duelos[0].asientos).toEqual([1, 0]);
+  });
+
+  it('en 1v1 el empate de envido lo gana la mano, sea quien sea', () => {
+    for (const mano of [0, 1]) {
+      const p = nuevaPartida(cfg(2), mano);
+      conManos(p, [[c(7, 'oro'), c(6, 'oro'), c(4, 'basto')], [c(7, 'copa'), c(6, 'copa'), c(4, 'espada')]]);
+      aplicar(p, mano, { tipo: 'envido', canto: 'envido' });
+      aplicar(p, 1 - mano, { tipo: 'quiero' });
+      expect(p.puntos[mano]).toBe(2);
+      expect(p.puntos[1 - mano]).toBe(0);
+    }
+  });
+});
+
 describe('truco', () => {
   it('no querido da el nivel anterior y termina la mano', () => {
     const p = nuevaPartida(cfg(2));

@@ -41,6 +41,8 @@ export function sesionGuardada(): Sesion | null {
 /** Mantiene la vista actualizada pidiendo el estado periódicamente. */
 export class Conexion {
   seq = 0;
+  /** Última versión de la sala aplicada: una respuesta vieja (que llega tarde) no pisa a una nueva. */
+  private version = -1;
   private timer: number | null = null;
   private activa = true;
   private pidiendo = false;
@@ -51,7 +53,7 @@ export class Conexion {
     private alError: (e: Error) => void,
   ) {}
 
-  iniciar(intervalo = 700) {
+  iniciar(intervalo = 600) {
     const ciclo = async () => {
       if (!this.activa) return;
       await this.refrescar();
@@ -85,6 +87,8 @@ export class Conexion {
   }
 
   private recibir(v: Vista) {
+    if (v.version < this.version) return;
+    this.version = v.version;
     this.alActualizar(v);
     this.seq = Math.max(this.seq, v.seq);
   }

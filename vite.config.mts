@@ -28,6 +28,7 @@ export default defineConfig({
       input: {
         main: 'index.html',
         galeria: 'galeria.html',
+        mockup: 'mockup.html',
       },
     },
   },

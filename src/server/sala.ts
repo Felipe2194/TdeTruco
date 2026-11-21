@@ -69,7 +69,7 @@ export function validarConfig(c: Partial<Config> | undefined): Config {
   return { jugadores, objetivo, picaPica: c?.picaPica !== false };
 }
 
-export const limpiarNombre = (n: unknown) => String(n ?? '').trim().replace(/\s+/g, ' ').slice(0, 18) || 'Gaucho';
+export const limpiarNombre = (n: unknown) => String(n ?? '').trim().replace(/\s+/g, ' ').slice(0, 18) || 'Jugador';
 
 export function asientoDe(sala: Sala, token: string | null | undefined): number {
   if (!token) return -1;
@@ -169,7 +169,8 @@ function nuevaMano(sala: Sala, ahora: number) {
         evento(sala, { tipo: 'sena', asiento: a, texto: senaDeMano(p.ronda!.manos[a]), retraso: 2500 + Math.random() * 4000 });
     }
   }
-  sala.proximo = ahora + 1500;
+  // Tiempo para el reparto (una carta a la vez) y, en pica-pica, para la cinemática del hachazo.
+  sala.proximo = ahora + 900 + p.config.jugadores * 3 * 110 + (p.ronda!.tipo === 'picapica' ? 2600 : 0);
 }
 
 function registrar(sala: Sala, efectos: Efecto[]) {
@@ -235,10 +236,19 @@ export function decir(sala: Sala, token: string, que: Indicacion) {
   }
 }
 
+/** Las señas solo tienen sentido si hay un compañero en el mismo duelo (no en 1v1 ni en pica-pica). */
+export function puedeHacerSena(sala: Sala, asiento: number): boolean {
+  const p = sala.partida;
+  if (sala.fase !== 'jugando' || !p?.ronda) return false;
+  const d = dueloDe(p, asiento);
+  return !!d && d.asientos.some((b) => b !== asiento && equipoDe(b) === equipoDe(asiento));
+}
+
 export function hacerSena(sala: Sala, token: string, clave: string) {
   const a = exigirAsiento(sala, token);
   if (!SENAS.includes(clave)) throw new ErrorSala('Seña desconocida');
   if (sala.fase !== 'jugando') return;
+  if (!puedeHacerSena(sala, a)) throw new ErrorSala('No tenés compañero a quien hacerle señas');
   evento(sala, { tipo: 'sena', asiento: a, texto: clave });
 }
 

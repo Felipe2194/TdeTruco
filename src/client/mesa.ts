@@ -1,14 +1,14 @@
 /*
- * Escena de la mesa en primera persona: fondo, gauchos alrededor, cartas y globos de diálogo.
+ * Escena de la mesa en primera persona: fondo CRT, personajes alrededor, cartas y globos de diálogo.
  * Se dibuja a partir de una Vista (lo que el servidor le muestra a este jugador).
  */
 import { claveCarta, type Carta } from '../engine/cartas';
 import type { Vista, VistaDuelo } from '../server/vista';
 import { imagenCarta } from './arte/cartas';
-import { FONDO_SVG, MATE_SVG } from './arte/escena';
-import { COLOR_EQUIPO, GAUCHOS, gauchoSVG } from './arte/gauchos';
+import { CRT_HTML, FONDO_SVG, GRIETA_SVG, HACHA_SVG, MESA_DECO } from './arte/escena';
+import { avatarSVG, COLOR_EQUIPO } from './arte/personajes';
 
-const CW = 130, CH = 200;
+const CW = 130, CH = 195; // proporción 2:3, igual que la grilla de las cartas (64x96)
 
 interface Lugar {
   avatar: HTMLDivElement;
@@ -29,6 +29,7 @@ const PARAMS: Record<number, { sx: number; sy: number; escala: number; cy: numbe
   8: { sx: 320, sy: 128, escala: 0.74, cy: 0.575, avatar: 0.78 },
 };
 
+const dormir = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const esperarFrame = () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r())));
 
 function tf(el: HTMLElement, { x, y, rx = 0, ry = 0, rz = 0, s = 1 }: Transformacion) {
@@ -53,21 +54,30 @@ export class Mesa {
   private timersSena: Record<number, number> = {};
   private burbujaYo: HTMLDivElement;
   private repartiendo: Promise<void> | null = null;
+  /** Carta propia que ya salió para la mesa y espera la confirmación del servidor. */
+  private enviando: string | null = null;
+  private mazo: HTMLDivElement | null = null;
+  private placaYo: HTMLDivElement;
+  private grieta: HTMLDivElement;
 
-  /** Se llama cuando el jugador toca una carta de su mano. */
-  alJugar: (c: Carta) => void = () => {};
+  /** Se llama cuando el jugador toca una carta de su mano. Devuelve si el servidor la aceptó. */
+  alJugar: (c: Carta) => Promise<boolean> = async () => false;
   /** Se llama con los puntos ganados (para el cartel). */
-  alCartel: (texto: string, equipo?: number) => void = () => {};
+  alCartel: (texto: string, equipo?: number, detalle?: string) => void = () => {};
 
   constructor(raiz: HTMLElement) {
     raiz.insertAdjacentHTML('beforeend', `
       ${FONDO_SVG}
       <div id="mesa"></div>
-      ${MATE_SVG}
-      <div id="luz"></div>
-      <div id="vineta"></div>
-      <div id="capa-mesa"></div>`);
+      <div id="grieta">${GRIETA_SVG}</div>
+      ${MESA_DECO}
+      <div id="capa-mesa"></div>
+      ${CRT_HTML}`);
     this.capa = raiz.querySelector('#capa-mesa')!;
+    this.grieta = raiz.querySelector('#grieta')!;
+    this.placaYo = document.createElement('div');
+    this.placaYo.className = 'placa placa-yo';
+    this.capa.appendChild(this.placaYo);
     this.burbujaYo = this.crearBurbuja();
     addEventListener('resize', () => this.reubicar());
   }
@@ -96,17 +106,30 @@ export class Mesa {
       const j = v.jugadores[a];
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
-      avatar.innerHTML = gauchoSVG(GAUCHOS[a % GAUCHOS.length], COLOR_EQUIPO[a % 2], `a${a}`);
-      avatar.querySelectorAll<SVGElement>('.respira').forEach((e) => (e.style.animationDelay = `${-a * 0.7}s`));
-      avatar.querySelectorAll<SVGElement>('.parpadeo').forEach((e) => (e.style.animationDelay = `${a * 1.1}s`));
+      avatar.innerHTML = avatarSVG(a, COLOR_EQUIPO[a % 2]);
+      avatar.style.setProperty('--desfase', `${-a * 0.7}s`);
+      avatar.style.setProperty('--parpadeo', `${a * 1.1}s`);
       const placa = document.createElement('div');
       placa.className = 'placa';
       const companero = a % 2 === this.yo % 2;
-      placa.innerHTML = `<i style="background:${COLOR_EQUIPO[a % 2]}"></i>${escapar(j?.nombre ?? '—')}<small>${companero ? 'compañero' : 'rival'}</small>`;
+      placa.innerHTML = `<i style="background:${COLOR_EQUIPO[a % 2]}"></i>${escapar(j?.nombre ?? '—')}<small>${companero ? 'compañero' : 'rival'}</small>${FICHAS}`;
       this.capa.append(avatar, placa);
       this.lugares[a] = { avatar, placa, burbuja: this.crearBurbuja(), x: 0, borde: 0, ancho: 0, xoff: 0 };
     }
+    this.placaYo.innerHTML = `<i style="background:${COLOR_EQUIPO[this.yo % 2]}"></i>Vos${FICHAS}`;
     this.ubicarAvatares();
+  }
+
+  /** Quien reparte se sienta justo antes de la mano (se juega en sentido antihorario). */
+  private repartidor = (v: Vista) => (v.mano - 1 + this.n) % this.n;
+
+  private marcarManoYReparte(v: Vista) {
+    const reparte = this.repartidor(v);
+    for (let a = 0; a < this.n; a++) {
+      const placa = a === this.yo ? this.placaYo : this.lugares[a]?.placa;
+      placa?.classList.toggle('es-mano', a === v.mano);
+      placa?.classList.toggle('reparte', a === reparte);
+    }
   }
 
   private ubicarAvatares() {
@@ -141,6 +164,8 @@ export class Mesa {
       l.burbuja.style.left = `${x}px`;
       l.burbuja.style.top = `${(borde + 5 - altoVh) * H / 100 + 6}px`;
     }
+    this.placaYo.style.left = `${W / 2 - 300 * this.u()}px`;
+    this.placaYo.style.top = `${H - 64 * this.u()}px`;
     this.burbujaYo.style.left = `${W / 2 - 300 * this.u()}px`;
     this.burbujaYo.style.top = `${H - 150 * this.u()}px`;
   }
@@ -177,10 +202,33 @@ export class Mesa {
     };
   }
 
-  private posMazo = (): Transformacion => ({ x: innerWidth / 2, y: innerHeight * 0.56, rx: 40, ry: 180, s: 0.5 * this.u() });
+  /**
+   * El mazo queda sobre la mesa, a la derecha de quien reparte (mirando al centro).
+   * Como la mano es el siguiente en sentido antihorario, el mazo queda del lado de la mano.
+   */
+  private posMazo(): Transformacion {
+    const v = this.vista;
+    if (!v || !v.duelos.length) return { x: innerWidth / 2, y: innerHeight * 0.56, rx: 40, ry: 180, s: 0.5 * this.u() };
+    const P = PARAMS[this.n], u = this.u();
+    const psi = (this.rel(this.repartidor(v)) / this.n) * Math.PI * 2;
+    const ax = innerWidth / 2 + Math.sin(psi) * Math.max(P.sx + 100, 300) * u;
+    const ay = innerHeight * P.cy + Math.cos(psi) * (P.sy + 25) * u;
+    const k = 160 * u * Math.max(P.escala, 0.85);
+    return { x: ax + Math.cos(psi) * k, y: ay - Math.sin(psi) * k * 0.45, rx: 38, ry: 180, rz: (-psi * 180) / Math.PI + 90, s: 0.42 * u * P.escala };
+  }
+
+  private ubicarMazo() {
+    if (!this.mazo) {
+      this.mazo = this.crearCarta(null);
+      this.mazo.classList.add('mazo');
+    }
+    this.mazo.style.display = this.vista?.duelos.length ? '' : 'none';
+    tf(this.mazo, this.posMazo());
+  }
 
   private reubicar() {
     this.ubicarAvatares();
+    if (this.mazo) this.ubicarMazo();
     if (this.vista) this.dibujarCartas(this.vista, false);
   }
 
@@ -218,19 +266,25 @@ export class Mesa {
     });
     this.abanicos = Array.from({ length: this.n }, (_, a) =>
       a === this.yo ? [] : Array.from({ length: 3 }, () => { const el = this.crearCarta(null); todos.push(el); return el; }));
-    todos.forEach((el) => tf(el, this.posMazo()));
+    this.ubicarMazo();
+    todos.forEach((el) => { el.classList.add('rapida'); tf(el, this.posMazo()); });
     await esperarFrame();
+    todos.forEach((el) => el.classList.remove('rapida'));
+    // Se reparte de a una carta, empezando por la mano y siguiendo en sentido antihorario.
+    const orden = Array.from({ length: this.n }, (_, k) => (v.mano + k) % this.n);
+    const pausa = this.n <= 2 ? 170 : this.n <= 4 ? 120 : 80;
     for (let i = 0; i < 3; i++) {
-      for (let a = 0; a < this.n; a++) {
-        if (a === this.yo) continue;
-        const el = this.abanicos[a][i];
-        if (el) tf(el, this.posManoAjena(a, i, 3));
-        await new Promise((r) => setTimeout(r, 35));
+      for (const a of orden) {
+        if (a === this.yo) {
+          if (this.miMano[i]) tf(this.miMano[i], this.posEnMano(i, this.miMano.length));
+        } else {
+          const el = this.abanicos[a]?.[i];
+          if (el) tf(el, this.posManoAjena(a, i, 3));
+        }
+        await dormir(pausa);
       }
-      if (this.miMano[i]) tf(this.miMano[i], this.posEnMano(i, this.miMano.length));
-      await new Promise((r) => setTimeout(r, 60));
     }
-    await new Promise((r) => setTimeout(r, 400));
+    await dormir(450);
     this.miMano.forEach((el) => el.classList.add('rapida'));
   }
 
@@ -238,14 +292,34 @@ export class Mesa {
     el.onmouseenter = () => { this.hover = this.miMano.indexOf(el); this.acomodarMano(); };
     el.onmouseleave = () => { this.hover = -1; this.acomodarMano(); };
     el.onclick = () => {
-      if (!this.vista?.acciones.includes('jugar')) return;
-      const c = this.vista.miMano.find((x) => claveCarta(x) === el.dataset.clave);
-      if (c) this.alJugar(c);
+      const v = this.vista;
+      if (!v?.acciones.includes('jugar') || this.enviando || this.repartiendo) return;
+      const c = v.miMano.find((x) => claveCarta(x) === el.dataset.clave);
+      if (!c) return;
+      // La carta sale para la mesa sin esperar al servidor; si la rechaza, vuelve a la mano.
+      const clave = claveCarta(c);
+      const d = v.duelos.find((x) => x.asientos.includes(this.yo));
+      this.enviando = clave;
+      this.hover = -1;
+      this.miMano.forEach((x) => x.classList.add('bloqueada'));
+      el.classList.remove('rapida');
+      el.style.zIndex = String(5 + (d?.baza ?? 0));
+      tf(el, this.posJugada(this.yo, d?.baza ?? 0, 0));
+      this.alJugar(c).then((ok) => {
+        if (this.enviando !== clave) return;
+        this.enviando = null;
+        if (!ok) {
+          el.classList.add('rapida');
+          el.style.zIndex = '';
+          if (this.vista) this.dibujarCartas(this.vista);
+        }
+      });
     };
   }
 
   private acomodarMano() {
-    this.miMano.forEach((el, i) => tf(el, this.posEnMano(i, this.miMano.length)));
+    const enMano = this.miMano.filter((el) => el.dataset.clave !== this.enviando);
+    enMano.forEach((el, i) => tf(el, this.posEnMano(i, enMano.length)));
   }
 
   /** Reconciliación de las cartas con la vista. */
@@ -253,7 +327,7 @@ export class Mesa {
     // Mi mano: quitar las que ya no tengo (pasan a la mesa).
     const claves = new Set(v.miMano.map(claveCarta));
     this.miMano = this.miMano.filter((el) => claves.has(el.dataset.clave!));
-    const puedoJugar = v.acciones.includes('jugar');
+    const puedoJugar = v.acciones.includes('jugar') && !this.enviando;
     this.miMano.forEach((el) => el.classList.toggle('bloqueada', !puedoJugar));
     if (this.hover >= this.miMano.length) this.hover = -1;
     this.acomodarMano();
@@ -281,6 +355,8 @@ export class Mesa {
         const mia = document.querySelector<HTMLDivElement>(`.carta.mia[data-clave="${clave}"]`);
         if (mia) {
           el = mia;
+          if (this.enviando === clave) this.enviando = null;
+          el.style.zIndex = '';
           el.classList.remove('mia', 'rapida', 'bloqueada');
           el.onclick = el.onmouseenter = el.onmouseleave = null;
           this.miMano = this.miMano.filter((x) => x !== mia);
@@ -308,9 +384,19 @@ export class Mesa {
     // Turno: resaltar placas de quienes tienen que actuar.
     this.lugares.forEach((l, a) => l?.placa.classList.toggle('turno', v.actuan.includes(a)));
 
+    this.marcarManoYReparte(v);
+
     if (v.numeroMano !== this.numeroMano && v.duelos.length) {
+      const primera = this.numeroMano === -1;
       this.numeroMano = v.numeroMano;
-      this.repartiendo = this.repartir(v);
+      this.enviando = null;
+      const pica = v.tipoRonda === 'picapica';
+      if (pica && !primera) {
+        this.repartiendo = this.limpiar().then(() => this.hachazo()).then(() => this.repartir(v));
+      } else {
+        this.grieta.classList.toggle('visible', pica);
+        this.repartiendo = this.repartir(v);
+      }
     }
     if (this.repartiendo) {
       await this.repartiendo;
@@ -332,7 +418,7 @@ export class Mesa {
           case 'sena': if (e.asiento !== this.yo) this.sena(e.asiento!, e.texto!); break;
           case 'puntos': {
             const eq = Number(e.datos!.equipo);
-            this.alCartel(`${eq === this.yo % 2 ? 'Nosotros' : 'Ellos'} +${e.datos!.puntos}`, eq);
+            this.alCartel(`${eq === this.yo % 2 ? 'Nosotros' : 'Ellos'} +${e.datos!.puntos}`, eq, String(e.datos!.motivo ?? ''));
             break;
           }
           case 'baza': if (Number(e.datos!.ganador) === -1) this.alCartel('¡Parda!'); break;
@@ -345,6 +431,32 @@ export class Mesa {
         }
       }, retraso);
     }
+  }
+
+  /** Punta y hacha: un hachazo parte la mesa al medio antes de repartir la pica-pica. */
+  async hachazo() {
+    const P = PARAMS[this.n];
+    const capa = document.createElement('div');
+    capa.id = 'hachazo';
+    capa.style.setProperty('--cx', `${innerWidth / 2}px`);
+    capa.style.setProperty('--cy', `${innerHeight * P.cy}px`);
+    const colores = ['#4fae78', '#2a6a47', '#c97a3a', '#7a4420', '#f4f1e8'];
+    let astillas = '';
+    for (let i = 0; i < 18; i++) {
+      const ang = Math.PI + (i / 17) * Math.PI + (Math.random() - 0.5) * 0.3;
+      const dist = 90 + Math.random() * 170;
+      astillas += `<i class="astilla" style="--dx:${Math.cos(ang) * dist * 1.6}px;--dy:${Math.sin(ang) * dist}px;background:${colores[i % colores.length]};--t:${(6 + Math.random() * 8) | 0}px"></i>`;
+    }
+    capa.innerHTML = `<div class="destello"></div><div class="hacha">${HACHA_SVG}</div>${astillas}<div class="titulo-hacha">¡Punta<br>y hacha!</div>`;
+    document.body.appendChild(capa);
+    await dormir(330); // el golpe
+    this.grieta.classList.add('visible');
+    document.body.classList.add('temblor');
+    setTimeout(() => document.body.classList.remove('temblor'), 500);
+    await dormir(1950);
+    capa.classList.add('fuera');
+    await dormir(350);
+    capa.remove();
   }
 
   decir(asiento: number, texto: string, ms = 1800) {
@@ -378,6 +490,8 @@ export class Mesa {
     if (clave) av.classList.add('s-' + clave);
   }
 }
+
+const FICHAS = '<b class="ficha f-mano" title="Es mano: gana los empates">MANO</b><b class="ficha f-reparte" title="Reparte: el mazo está a su derecha">REPARTE</b>';
 
 export function escapar(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

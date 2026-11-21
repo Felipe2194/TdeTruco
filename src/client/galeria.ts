@@ -7,9 +7,9 @@ import type { Config } from '../engine/juego';
 import { repartir } from '../engine/juego';
 import { accionJugador, crearSala, iniciar, tick, type Sala } from '../server/sala';
 import { construirVista, type Vista } from '../server/vista';
-import { canvasCarta, canvasDorso } from './arte/cartas';
-import { FONDO_SVG, MATE_SVG, porotosSVG } from './arte/escena';
-import { COLOR_EQUIPO, GAUCHOS, gauchoSVG, SENAS } from './arte/gauchos';
+import { CRT_HTML, FONDO_SVG, MATE_SVG, porotosSVG } from './arte/escena';
+import { avatarSVG, COLOR_EQUIPO, SENAS } from './arte/personajes';
+import { cartaSVG, dorsoSVG, PERSONAJES, personajeSVG } from './arte/pixel';
 import { Hud } from './hud';
 import { Mesa } from './mesa';
 import { pantallaFin, pantallaInicio, pantallaLobby } from './pantallas';
@@ -22,7 +22,7 @@ const nada = () => {};
 declare global {
   interface Window { __galeria: Record<string, unknown>; __listo?: boolean }
 }
-window.__galeria = { canvasCarta, canvasDorso, porotosSVG, gauchoSVG, GAUCHOS, FONDO_SVG, MATE_SVG, SENAS };
+window.__galeria = { cartaSVG, dorsoSVG, porotosSVG, personajeSVG, PERSONAJES, FONDO_SVG, MATE_SVG, SENAS };
 
 const listo = (ms = 300) => setTimeout(() => (window.__listo = true), ms);
 
@@ -66,10 +66,10 @@ function vistaFicticia(jugadores: Config['jugadores'], fase: Vista['fase']): Vis
 }
 
 function fondoSolo(conMesa: boolean) {
-  app.insertAdjacentHTML('beforeend', FONDO_SVG + (conMesa ? `<div id="mesa"></div>${MATE_SVG}<div id="luz"></div><div id="vineta"></div>` : ''));
+  app.insertAdjacentHTML('beforeend', FONDO_SVG + (conMesa ? `<div id="mesa"></div>${MATE_SVG}` : '') + CRT_HTML);
 }
 
-function lienzo(html: string, fondo = 'radial-gradient(ellipse at 50% 40%, #6b4630, #2e1a0c)') {
+function lienzo(html: string, fondo = '#1b2a30') {
   if (q.get('t') === '1') {
     fondo = 'transparent';
     document.documentElement.style.background = 'transparent';
@@ -89,13 +89,27 @@ switch (parte) {
     listo();
     break;
 
+  case 'personaje':
   case 'gaucho': {
     const i = Number(q.get('g') ?? 0);
     const equipo = Number(q.get('equipo') ?? i % 2);
     const sena = q.get('sena');
-    lienzo(`<div id="pieza" class="avatar${sena ? ' s-' + sena : ''}" style="position:relative;width:380px;height:500px">${gauchoSVG(GAUCHOS[i], COLOR_EQUIPO[equipo], 'g' + i)}</div>`);
+    lienzo(`<div id="pieza" class="avatar${sena ? ' s-' + sena : ''}" style="position:relative;width:380px;height:500px">${avatarSVG(i, COLOR_EQUIPO[equipo])}</div>`);
     // Sin animación de respiración ni parpadeo, para una captura estable.
-    document.querySelectorAll<SVGElement>('.respira, .parpadeo').forEach((e) => (e.style.animation = 'none'));
+    document.querySelectorAll<SVGElement>('.cabeza, .ojo-i, .ojo-d, .ojo-i-c, .ojo-d-c').forEach((e) => (e.style.animation = 'none'));
+    listo(400);
+    break;
+  }
+
+  case 'personajes': {
+    // Los ocho personajes del estilo, con una seña distinta cada uno.
+    const senas = [null, 'anchoEspada', 'anchoBasto', 'tres', 'dos', 'anchoFalso', 'envido', 'nada'];
+    fondoSolo(true);
+    app.insertAdjacentHTML('beforeend', `<div class="pantalla"><div class="tarjeta galeria-personajes">
+      <div class="logo" style="font-size:24px">Personajes<small>con una seña cada uno</small></div>
+      <div class="grilla-personajes">${senas.map((s, i) => `<figure>
+        <div class="avatar${s ? ' s-' + s : ''}" style="position:relative;width:100%;aspect-ratio:224/300">${avatarSVG(i, COLOR_EQUIPO[i % 2])}</div>
+        <figcaption>${s ? SENAS.find((x) => x.k === s)!.gesto : 'Neutral'}</figcaption></figure>`).join('')}</div></div></div>`);
     listo(400);
     break;
   }
@@ -109,7 +123,7 @@ switch (parte) {
   }
 
   case 'componentes': {
-    document.body.style.background = 'radial-gradient(ellipse at 50% 40%, #6b4630, #2e1a0c)';
+    document.body.style.background = '#1b2a30';
     app.innerHTML = `
       <div style="position:fixed;inset:0;padding:40px;display:flex;flex-wrap:wrap;gap:40px;align-content:flex-start">
         <div id="c-botones" class="panel" style="position:relative;display:flex;gap:8px;flex-wrap:wrap;width:520px">
@@ -130,7 +144,7 @@ switch (parte) {
           <div id="cartel" class="visible e0" style="position:absolute;top:55px;left:210px">Nosotros +2</div>
         </div>
         <div id="c-cartel-ellos" style="position:relative;width:420px;height:110px">
-          <div class="visible e1" id="cartel2" style="position:absolute;top:55px;left:210px;transform:translate(-50%,-50%);font-size:40px;font-weight:900;padding:14px 30px;border-radius:18px;background:rgba(30,16,10,.88);color:var(--colorado);border:2px solid rgba(232,196,106,.4);white-space:nowrap">Ellos +3</div>
+          <div class="cartel visible e1" style="position:absolute;top:55px;left:210px">Ellos +3</div>
         </div>
         <div id="c-placas" style="position:relative;width:520px;height:60px">
           <div class="placa" style="position:absolute;left:110px;top:15px"><i style="background:${COLOR_EQUIPO[0]}"></i>Ramón<small>compañero</small></div>
@@ -220,6 +234,6 @@ switch (parte) {
 
   default:
     lienzo(`<div class="tarjeta"><div class="logo" style="font-size:32px">Galería de diseño</div>
-      <p class="nota">Partes: fondo, mesa, gaucho, marcador, componentes, hud, partida, inicio, lobby, fin.</p></div>`);
+      <p class="nota">Partes: fondo, mesa, personaje (o gaucho), personajes, marcador, componentes, hud, partida, inicio, lobby, fin.</p></div>`);
     listo();
 }

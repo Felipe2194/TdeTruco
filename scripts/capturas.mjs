@@ -83,10 +83,6 @@ await rm(OUT, { recursive: true, force: true });
   const d = await carpeta('02-fondo');
   await abrir('fondo');
   await foto(join(d, '00-fondo-completo.png'));
-  const elementos = [['f-pared', '01-pared'], ['f-techo', '02-techo-y-vigas'], ['f-ventana', '03-ventana-pampa'],
-    ['f-guitarra', '04-guitarra'], ['f-estanteria', '05-estanteria-botellas'], ['f-farol', '06-farol']];
-  for (const [id, nombre] of elementos) await fotoElemento(`#${id}`, join(d, `${nombre}.png`));
-  await guardarTexto(join(d, 'fondo.svg'), await page.evaluate(() => window.__galeria.FONDO_SVG));
 }
 
 // ------------------------------------------------------------------ 03 Mesa
@@ -94,67 +90,80 @@ await rm(OUT, { recursive: true, force: true });
   const d = await carpeta('03-mesa');
   await abrir('mesa');
   await foto(join(d, '01-mesa-con-ambiente.png'));
-  await foto(join(d, '02-mesa-madera.png'), { clip: { x: 0, y: H * 0.34, width: W, height: H * 0.66 } });
-  await fotoElemento('#mate', join(d, '03-mate-y-pava.png'), { omitBackground: true });
-  await guardarTexto(join(d, 'mate-y-pava.svg'), await page.evaluate(() => window.__galeria.MATE_SVG));
+  await foto(join(d, '02-mesa-pano.png'), { clip: { x: 0, y: H * 0.34, width: W, height: H * 0.66 } });
+  await fotoElemento('#mate', join(d, '03-mate.png'), { omitBackground: true });
+  await guardarTexto(join(d, 'mate.svg'), await page.evaluate(() => window.__galeria.MATE_SVG));
 }
 
 // ------------------------------------------------------------------ 04 Personajes y 05 Señas
-const gauchos = await (async () => { await abrir('gaucho'); return page.evaluate(() => window.__galeria.GAUCHOS.map((g) => g.nombre)); })();
+const gauchos = await (async () => { await abrir('personaje'); return page.evaluate(() => window.__galeria.PERSONAJES.map((g) => g.nombre)); })();
 {
   const d = await carpeta('04-personajes');
   for (let i = 0; i < gauchos.length; i++) {
     const base = `${dos(i + 1)}-${slug(gauchos[i])}`;
     for (const [eq, color] of [[0, 'celeste'], [1, 'colorado']]) {
-      await abrir('gaucho', { g: String(i), equipo: String(eq), t: '1' });
+      await abrir('personaje', { g: String(i), equipo: String(eq), t: '1' });
       await fotoElemento('#pieza', join(d, `${base}-equipo-${color}.png`), { omitBackground: true });
     }
     const svg = await page.evaluate((i) => {
       const g = window.__galeria;
-      return g.gauchoSVG(g.GAUCHOS[i], '#6fa8dc', 'g' + i).trim();
+      return g.personajeSVG(g.PERSONAJES[i], '#5ab0ff').trim();
     }, i);
     await guardarTexto(join(d, `${base}.svg`), svg);
   }
   const s = await carpeta('05-senas');
   for (let i = 0; i < gauchos.length; i++) {
     const dg = await carpeta('05-senas', `${dos(i + 1)}-${slug(gauchos[i])}`);
-    await abrir('gaucho', { g: String(i), t: '1' });
+    await abrir('personaje', { g: String(i), t: '1' });
     await fotoElemento('#pieza', join(dg, '00-neutral.png'), { omitBackground: true });
     for (let k = 0; k < SENAS.length; k++) {
-      await abrir('gaucho', { g: String(i), sena: SENAS[k], t: '1' });
+      await abrir('personaje', { g: String(i), sena: SENAS[k], t: '1' });
       await fotoElemento('#pieza', join(dg, `${dos(k + 1)}-${slug(SENAS[k].replace(/([A-Z])/g, ' $1'))}.png`), { omitBackground: true });
     }
   }
   void s;
 }
 
-// ------------------------------------------------------------------ 06 Cartas (a resolución completa, 300x462)
+// ------------------------------------------------------------------ 06 Cartas (pixel art: SVG de 64x96 + PNG a 4x)
 {
   await abrir('indice');
+  const png = async (svg, archivo) => {
+    await page.evaluate((svg) => {
+      document.getElementById('app').innerHTML = '<img id="pieza-carta" style="position:absolute;left:0;top:0;width:256px;height:384px;image-rendering:pixelated">';
+      document.getElementById('pieza-carta').src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    }, svg);
+    await page.waitForTimeout(30);
+    await fotoElemento('#pieza-carta', archivo, { omitBackground: true });
+  };
   for (const palo of PALOS) {
     const d = await carpeta('06-cartas', palo);
     for (const n of NUMEROS) {
-      const url = await page.evaluate(([n, p]) => window.__galeria.canvasCarta({ n, p }).toDataURL(), [n, palo]);
-      await guardarDataUrl(join(d, `${dos(n)}-${palo}.png`), url);
+      const svg = await page.evaluate(([n, p]) => window.__galeria.cartaSVG({ n, p }), [n, palo]);
+      await guardarTexto(join(d, `${dos(n)}-${palo}.svg`), svg);
+      await png(svg, join(d, `${dos(n)}-${palo}.png`));
     }
   }
   const d = await carpeta('06-cartas');
-  await guardarDataUrl(join(d, 'dorso.png'), await page.evaluate(() => window.__galeria.canvasDorso().toDataURL()));
+  const dorso = await page.evaluate(() => window.__galeria.dorsoSVG());
+  await guardarTexto(join(d, 'dorso.svg'), dorso);
+  await png(dorso, join(d, 'dorso.png'));
   // Hoja con las 40 cartas.
   await page.evaluate(([palos, numeros]) => {
-    document.body.style.background = '#2e1a0c';
+    document.body.style.background = '#1b2a30';
+    const hoja = document.createElement('div');
+    hoja.id = 'hoja';
+    hoja.style.cssText = 'position:absolute;left:0;top:0;width:1600px;display:grid;grid-template-columns:repeat(10,1fr);gap:12px;padding:16px;background:#1b2a30';
+    for (const p of palos) for (const n of numeros) {
+      const img = document.createElement('img');
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(window.__galeria.cartaSVG({ n, p }));
+      img.style.cssText = 'width:100%;image-rendering:pixelated';
+      hoja.appendChild(img);
+    }
     const app = document.getElementById('app');
     app.innerHTML = '';
-    const grilla = document.createElement('div');
-    grilla.id = 'hoja';
-    grilla.style.cssText = 'position:absolute;left:0;top:0;width:1600px;display:grid;grid-template-columns:repeat(10,1fr);gap:8px;padding:12px;background:#2e1a0c';
-    for (const p of palos) for (const n of numeros) {
-      const c = window.__galeria.canvasCarta({ n, p });
-      c.style.width = '100%';
-      grilla.appendChild(c);
-    }
-    app.appendChild(grilla);
+    app.appendChild(hoja);
   }, [PALOS, NUMEROS]);
+  await page.waitForTimeout(300);
   await fotoElemento('#hoja', join(d, 'hoja-completa.png'));
 }
 
