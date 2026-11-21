@@ -74,6 +74,7 @@ export class Hud {
 
   mostrar(si: boolean) {
     this.raiz.style.display = si ? '' : 'none';
+    document.body.classList.toggle('en-mesa', si);
   }
 
   actualizar(v: Vista) {
@@ -126,7 +127,8 @@ export class Hud {
     }
     if (responder) this.q('#acciones').classList.remove('plegado');
 
-    const hayCompanero = v.config.jugadores > 2;
+    // Solo si hay un compañero en tu duelo (en 1v1 y en pica-pica no lo hay).
+    const hayCompanero = acc.has('sena');
     this.q('[data-companero]').style.display = hayCompanero ? '' : 'none';
     this.raiz.querySelectorAll<HTMLButtonElement>('[data-decir]').forEach((b) => (b.disabled = !acc.has('voy')));
     // Las señas son para el compañero: en 1v1 y en pica-pica no hay a quién hacérselas.

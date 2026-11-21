@@ -75,6 +75,7 @@ export class Mesa {
       ${CRT_HTML}`);
     this.capa = raiz.querySelector('#capa-mesa')!;
     this.grieta = raiz.querySelector('#grieta')!;
+    document.body.insertAdjacentHTML('beforeend', '<div id="girar"><div class="tarjeta"><div class="telefono"></div>Girá el celular para jugar</div></div>');
     this.placaYo = document.createElement('div');
     this.placaYo.className = 'placa placa-yo';
     this.capa.appendChild(this.placaYo);
@@ -90,7 +91,7 @@ export class Mesa {
   }
 
   // ---------------------------------------------------------------- Distribución
-  private u = () => innerHeight / 900;
+  private u = () => Math.min(innerHeight / 900, innerWidth / 1600);
   private rel = (asiento: number) => (asiento - this.yo + this.n) % this.n;
 
   private configurar(v: Vista) {
@@ -98,6 +99,7 @@ export class Mesa {
     if (firma === this.firma) return;
     this.firma = firma;
     this.n = v.config.jugadores;
+    document.body.dataset.jugadores = String(this.n);
     this.yo = v.yo >= 0 ? v.yo : 0;
     this.lugares.forEach((l) => { l?.avatar.remove(); l?.placa.remove(); l?.burbuja.remove(); });
     this.lugares = Array(this.n).fill(null);
@@ -112,7 +114,7 @@ export class Mesa {
       const placa = document.createElement('div');
       placa.className = 'placa';
       const companero = a % 2 === this.yo % 2;
-      placa.innerHTML = `<i style="background:${COLOR_EQUIPO[a % 2]}"></i>${escapar(j?.nombre ?? '—')}<small>${companero ? 'compañero' : 'rival'}</small>${FICHAS}`;
+      placa.innerHTML = `<i style="background:${COLOR_EQUIPO[a % 2]}"></i>${escapar(j?.nombre ?? '—')}<small class="rol" data-rol="${companero ? 'compañero' : 'rival'}">${companero ? 'compañero' : 'rival'}</small>${FICHAS}`;
       this.capa.append(avatar, placa);
       this.lugares[a] = { avatar, placa, burbuja: this.crearBurbuja(), x: 0, borde: 0, ancho: 0, xoff: 0 };
     }
@@ -125,10 +127,27 @@ export class Mesa {
 
   private marcarManoYReparte(v: Vista) {
     const reparte = this.repartidor(v);
+    const pica = v.tipoRonda === 'picapica';
     for (let a = 0; a < this.n; a++) {
       const placa = a === this.yo ? this.placaYo : this.lugares[a]?.placa;
-      placa?.classList.toggle('es-mano', a === v.mano);
-      placa?.classList.toggle('reparte', a === reparte);
+      if (!placa) continue;
+      placa.classList.toggle('es-mano', a === v.mano);
+      placa.classList.toggle('reparte', a === reparte);
+      // En pica-pica cada uno juega su propio duelo: la placa dice contra quién y cómo viene.
+      const d = v.duelos.find((x) => x.asientos.includes(a));
+      const rival = d?.asientos.find((b) => b % 2 !== a % 2);
+      const rol = placa.querySelector<HTMLElement>('.rol');
+      if (rol) rol.textContent = pica && rival !== undefined ? `vs ${rival === this.yo ? 'vos' : v.jugadores[rival]?.nombre ?? ''}` : rol.dataset.rol ?? '';
+      const ficha = placa.querySelector<HTMLElement>('.f-duelo')!;
+      let texto = '', clase = '';
+      if (pica && d) {
+        if (d.fin) { texto = d.fin.ganador === a % 2 ? `Ganó +${d.fin.puntos}` : 'Perdió'; clase = d.fin.ganador === a % 2 ? 'gano' : 'perdio'; }
+        else if (d.envido?.pendiente) { texto = '¿' + NOMBRE_ENVIDO[d.envido.cadena[d.envido.cadena.length - 1]] + '?'; clase = 'canto'; }
+        else if (d.truco.pendiente) { texto = '¿' + NOMBRE_TRUCO[d.truco.pendiente.nivel] + '?'; clase = 'canto'; }
+        else if (d.truco.nivel > 1) { texto = NOMBRE_TRUCO[d.truco.nivel]; clase = 'truco'; }
+      }
+      ficha.textContent = texto;
+      ficha.className = `ficha f-duelo ${clase}`;
     }
   }
 
@@ -137,6 +156,9 @@ export class Mesa {
     const otros = this.n - 1;
     const factor = PARAMS[this.n].avatar;
     const A = 0.36;
+    // Alto de los personajes: el de la pantalla, sin que se encimen con el vecino si la pantalla es angosta.
+    const separacion = otros > 1 ? (2 * A * W) / (otros - 1) : Infinity;
+    const uAvatar = Math.min(H / 900, (separacion * 1.25) / (0.76 * 33 * factor * 9));
     for (let a = 0; a < this.n; a++) {
       const l = this.lugares[a];
       if (!l) continue;
@@ -144,17 +166,17 @@ export class Mesa {
       const f = otros === 1 ? 0.5 : (r - 1) / (otros - 1);
       const xoff = (0.5 - f) * 2 * A; // a tu derecha el siguiente en jugar
       const cercania = Math.abs(xoff) / A;
-      const altoVh = (33 + 5 * cercania) * factor;
-      const anchoPx = (altoVh * H / 100) * 0.76;
+      const altoPx = (33 + 5 * cercania) * factor * 9 * uAvatar;
+      const anchoPx = altoPx * 0.76;
       const ratio = (xoff * W) / (0.75 * W);
       const borde = 93 - 55 * Math.sqrt(Math.max(0, 1 - ratio * ratio));
       const x = W / 2 + xoff * W;
       Object.assign(l, { x, borde, ancho: anchoPx, xoff: xoff / A });
       const st = l.avatar.style;
       st.width = `${anchoPx}px`;
-      st.height = `${altoVh}vh`;
+      st.height = `${altoPx}px`;
       st.left = `${x - anchoPx / 2}px`;
-      st.top = `${borde + 5 - altoVh}vh`;
+      st.top = `${((borde + 5) * H) / 100 - altoPx}px`;
       // Siempre detrás de la mesa (z 3); los de los costados, delante de los del fondo.
       st.zIndex = cercania > 0.5 ? '2' : '1';
       st.transform = xoff === 0 ? '' : `perspective(900px) rotateY(${-Math.sign(xoff) * 22 * cercania}deg)`;
@@ -162,7 +184,7 @@ export class Mesa {
       l.placa.style.left = `${x}px`;
       l.placa.style.top = `${borde - 3.4}vh`;
       l.burbuja.style.left = `${x}px`;
-      l.burbuja.style.top = `${(borde + 5 - altoVh) * H / 100 + 6}px`;
+      l.burbuja.style.top = `${((borde + 5) * H) / 100 - altoPx + 6}px`;
     }
     this.placaYo.style.left = `${W / 2 - 300 * this.u()}px`;
     this.placaYo.style.top = `${H - 64 * this.u()}px`;
@@ -185,11 +207,20 @@ export class Mesa {
   private posJugada(a: number, baza: number, giro: number): Transformacion {
     const P = PARAMS[this.n];
     const u = this.u();
+    const s = ((153 * u) / (CH * 0.95)) * P.escala;
+    const l = this.lugares[a];
+    if (this.n >= 6 && l) {
+      return {
+        x: innerWidth / 2 + (l.x - innerWidth / 2) * 0.88 + (baza - 1) * 16 * u,
+        y: (l.borde * innerHeight) / 100 + 92 * u * P.escala + baza * 7 * u,
+        rx: 16, rz: giro, s,
+      };
+    }
     const psi = (this.rel(a) / this.n) * Math.PI * 2;
     return {
       x: innerWidth / 2 + Math.sin(psi) * P.sx * u + (baza - 1) * 30 * u * P.escala,
       y: innerHeight * P.cy + Math.cos(psi) * P.sy * u,
-      rx: 16, rz: giro, s: ((innerHeight * 0.17) / (CH * 0.95)) * P.escala,
+      rx: 16, rz: giro, s,
     };
   }
 
@@ -491,7 +522,9 @@ export class Mesa {
   }
 }
 
-const FICHAS = '<b class="ficha f-mano" title="Es mano: gana los empates">MANO</b><b class="ficha f-reparte" title="Reparte: el mazo está a su derecha">REPARTE</b>';
+const NOMBRE_TRUCO = ['', '', 'Truco', 'Retruco', 'Vale 4'];
+const NOMBRE_ENVIDO: Record<string, string> = { envido: 'Envido', real: 'Real envido', falta: 'Falta envido' };
+const FICHAS = '<b class="ficha f-duelo"></b><b class="ficha f-mano" title="Es mano: gana los empates">MANO</b><b class="ficha f-reparte" title="Reparte: el mazo está a su derecha">REPARTE</b>';
 
 export function escapar(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
