@@ -6,7 +6,7 @@
 import type { Palo } from '../engine/cartas.js';
 import { type Accion, type CantoEnvido, ErrorJuego } from '../engine/juego.js';
 import {
-  accionJugador, crearSala, decir, ErrorSala, hacerSena, iniciar, limpiarNombre, ponerBot, revancha, type Sala, sentarse,
+  accionJugador, crearSala, ponerRival, decir, ErrorSala, hacerSena, iniciar, limpiarNombre, ponerBot, revancha, type Sala, sentarse,
   tick, unirse, validarConfig,
 } from './sala.js';
 import { obtenerStore } from './store.js';
@@ -73,6 +73,7 @@ export async function manejar(metodo: string, query: Record<string, unknown>, cu
     if (op === 'crear') {
       for (let i = 0; i < 8; i++) {
         const { sala, token: t } = crearSala(limpiarNombre(b.nombre), validarConfig(b.config as Cuerpo), Date.now());
+        if (b.conBots && b.rival && sala.config.jugadores === 2) ponerRival(sala, String(b.rival));
         if (b.conBots) iniciar(sala, t, Date.now());
         if (await store().crear(sala)) return { status: 200, json: { token: t, vista: construirVista(sala, t) } };
       }

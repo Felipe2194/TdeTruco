@@ -89,9 +89,9 @@ function inicio(error?: string) {
   pantallaInicio(pantalla, {
     codigo,
     error,
-    alCrear: async (nombre: string, config: Config, conBots: boolean) => {
+    alCrear: async (nombre: string, config: Config, conBots: boolean, rival?: string) => {
       try {
-        const r = await post({ op: 'crear', nombre, config, conBots });
+        const r = await post({ op: 'crear', nombre, config, conBots, rival });
         conectar({ codigo: r.vista.codigo, token: r.token! });
       } catch (e) {
         inicio((e as Error).message);

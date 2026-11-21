@@ -10,6 +10,7 @@ import { construirVista, type Vista } from '../server/vista';
 import { CRT_HTML, FONDO_SVG, MATE_SVG, porotosSVG } from './arte/escena';
 import { avatarSVG, COLOR_EQUIPO, SENAS } from './arte/personajes';
 import { cartaSVG, dorsoSVG, PERSONAJES, personajeSVG } from './arte/pixel';
+import { RIVALES, rivalSVG } from './arte/rivales';
 import { Hud } from './hud';
 import { Mesa } from './mesa';
 import { pantallaFin, pantallaInicio, pantallaLobby } from './pantallas';
@@ -22,7 +23,7 @@ const nada = () => {};
 declare global {
   interface Window { __galeria: Record<string, unknown>; __listo?: boolean }
 }
-window.__galeria = { cartaSVG, dorsoSVG, porotosSVG, personajeSVG, PERSONAJES, FONDO_SVG, MATE_SVG, SENAS };
+window.__galeria = { RIVALES, rivalSVG, cartaSVG, dorsoSVG, porotosSVG, personajeSVG, PERSONAJES, FONDO_SVG, MATE_SVG, SENAS };
 
 const listo = (ms = 300) => setTimeout(() => (window.__listo = true), ms);
 
@@ -110,6 +111,27 @@ switch (parte) {
       <div class="grilla-personajes">${senas.map((s, i) => `<figure>
         <div class="avatar${s ? ' s-' + s : ''}" style="position:relative;width:100%;aspect-ratio:224/300">${avatarSVG(i, COLOR_EQUIPO[i % 2])}</div>
         <figcaption>${s ? SENAS.find((x) => x.k === s)!.gesto : 'Neutral'}</figcaption></figure>`).join('')}</div></div></div>`);
+    listo(400);
+    break;
+  }
+
+  case 'rivales': {
+    // Rivales del modo 1v1 contra bots: retrato, frase y personalidad de juego.
+    fondoSolo(true);
+    const barra = (n: string, v: number) => `<div class="barra"><span>${n}</span><i><b style="width:${Math.round(v * 100)}%"></b></i></div>`;
+    app.insertAdjacentHTML('beforeend', `<div class="pantalla"><div class="tarjeta galeria-rivales">
+      <div class="logo" style="font-size:24px">Rivales 1v1<small>modo contra bots · propuesta de diseño</small></div>
+      <div class="grilla-rivales">${RIVALES.map((r) => `<figure class="rival" data-rival="${r.id}">
+        <div class="retrato" style="background-color:${r.fondo}"><div class="avatar">${rivalSVG(r)}</div></div>
+        <figcaption><b>${r.nombre}</b><em>${r.apodo}</em><q>${r.frase.replace(/"/g, '')}</q><p>${r.estilo}</p>
+        ${barra('Truco', r.juego.truco)}${barra('Envido', r.juego.envido)}${barra('Mentira', r.juego.mentira)}</figcaption></figure>`).join('')}</div></div></div>`);
+    // Cada tanto alguno habla, para ver la boca animada.
+    if (!q.has('quieto')) setInterval(() => {
+      const avs = [...document.querySelectorAll<HTMLElement>('.rival .avatar')];
+      const av = avs[Math.floor(Math.random() * avs.length)];
+      av.classList.add('hablando');
+      setTimeout(() => av.classList.remove('hablando'), 900);
+    }, 700);
     listo(400);
     break;
   }

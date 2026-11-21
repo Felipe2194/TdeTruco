@@ -2,12 +2,13 @@
 import type { Config } from '../engine/juego';
 import type { Vista } from '../server/vista';
 import { COLOR_EQUIPO, NOMBRE_EQUIPO } from './arte/personajes';
+import { RIVALES, rivalSVG } from './arte/rivales';
 import { escapar } from './mesa';
 
 export interface OpcionesInicio {
   codigo?: string;
   error?: string;
-  alCrear: (nombre: string, config: Config, conBots: boolean) => void;
+  alCrear: (nombre: string, config: Config, conBots: boolean, rival?: string) => void;
   alUnirse: (nombre: string, codigo: string) => void;
 }
 
@@ -33,6 +34,14 @@ export function pantallaInicio(el: HTMLElement, o: OpcionesInicio) {
         </div>
         <label class="check" data-pica><input type="checkbox" id="pica" checked> Pica-pica (punta y hacha) en la zona media</label>
       </div>
+      <div class="campo" data-rivales>
+        <label>Rival (contra bots)</label>
+        <div class="rivales">
+          <button class="rival-op activa" data-rival="azar" title="Un rival al azar"><span class="azar">?</span><b>Al azar</b></button>
+          ${RIVALES.map((r) => `<button class="rival-op" data-rival="${r.id}" title="${escapar(r.estilo)}"><span class="mini" style="background-color:${r.fondo}">${rivalSVG(r)}</span><b>${escapar(r.nombre)}</b></button>`).join('')}
+        </div>
+        <div class="rival-estilo" data-estilo>Te toca un rival sorpresa.</div>
+      </div>
       <div class="fila">
         <button class="btn grande" data-crear>Crear sala</button>
         <button class="btn grande secundario" data-bots>Jugar contra bots</button>
@@ -45,7 +54,19 @@ export function pantallaInicio(el: HTMLElement, o: OpcionesInicio) {
       <div class="error" data-error>${escapar(o.error ?? '')}</div>
     </div>`;
   const $ = <T extends HTMLElement>(s: string) => el.querySelector(s) as T;
-  const actualizarPica = () => ($('[data-pica]').style.display = config.jugadores >= 6 ? '' : 'none');
+  let rival = localStorage.getItem('truco-rival') ?? 'azar';
+  const elegirRival = (id: string) => {
+    rival = RIVALES.some((r) => r.id === id) ? id : 'azar';
+    el.querySelectorAll('[data-rival]').forEach((x) => x.classList.toggle('activa', (x as HTMLElement).dataset.rival === rival));
+    const r = RIVALES.find((x) => x.id === rival);
+    $('[data-estilo]').textContent = r ? `${r.nombre}, ${r.apodo}: ${r.estilo}` : 'Te toca un rival sorpresa.';
+  };
+  el.querySelectorAll<HTMLButtonElement>('[data-rival]').forEach((b) => (b.onclick = () => { elegirRival(b.dataset.rival!); localStorage.setItem('truco-rival', rival); }));
+  const actualizarPica = () => {
+    $('[data-pica]').style.display = config.jugadores >= 6 ? '' : 'none';
+    $('[data-rivales]').style.display = config.jugadores === 2 ? '' : 'none';
+  };
+  elegirRival(rival);
   actualizarPica();
   el.querySelectorAll<HTMLButtonElement>('[data-n]').forEach((b) => (b.onclick = () => {
     config.jugadores = Number(b.dataset.n) as Config['jugadores'];
@@ -70,7 +91,7 @@ export function pantallaInicio(el: HTMLElement, o: OpcionesInicio) {
     const n = nombre();
     if (!n) return;
     config.picaPica = $<HTMLInputElement>('#pica').checked;
-    o.alCrear(n, { ...config }, bots);
+    o.alCrear(n, { ...config }, bots, bots && config.jugadores === 2 ? rival : undefined);
   };
   $('[data-crear]').onclick = () => crear(false);
   $('[data-bots]').onclick = () => crear(true);

@@ -294,3 +294,34 @@ html, body { cursor: var(--cursor); }
 body[data-jugadores="6"] :is(#revolver, #atado), body[data-jugadores="8"] :is(#revolver, #atado) { display: none; }
 body[data-jugadores="6"] #mate, body[data-jugadores="8"] #mate { left: calc(50% - 39vw); top: 60vh; width: min(10vh, 5.6vw); }
 body[data-jugadores="6"] #cenicero, body[data-jugadores="8"] #cenicero { left: calc(50% + 14vw); top: 72vh; }
+
+/* ================================================================ Galería de rivales (1v1 contra bots) */
+.galeria-rivales { width: min(1180px, 100%) !important; }
+.grilla-rivales { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 18px; }
+.rival { margin: 0; background: var(--fondo); border: 3px solid var(--linea); border-radius: 6px; overflow: hidden; }
+.rival .retrato { aspect-ratio: 40 / 44; display: flex; align-items: flex-end; justify-content: center; border-bottom: 3px solid var(--k);
+  background-image: repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 2px, transparent 2px 6px); }
+.rival .avatar { position: relative !important; width: 100%; height: 100%; }
+.rival figcaption { padding: 10px 12px 12px; font-size: 14px; line-height: 1.35; }
+.rival figcaption b { display: block; font: 11px/1.5 var(--arcade); color: var(--acento); }
+.rival figcaption em { display: block; color: var(--suave); font-size: 13px; }
+.rival figcaption q { display: block; margin: 8px 0 6px; color: var(--texto); font-style: italic; quotes: '“' '”'; }
+.rival figcaption p { margin: 0 0 8px; color: var(--suave); font-size: 13px; }
+.rival .barra { display: flex; align-items: center; gap: 8px; font: 8px var(--arcade); color: var(--suave); margin-top: 5px; }
+.rival .barra span { width: 62px; text-transform: uppercase; }
+.rival .barra i { flex: 1; height: 8px; background: #0f1a1e; box-shadow: 0 0 0 2px var(--k); }
+.rival .barra b { display: block; height: 100%; background: var(--rojo); }
+@media (max-width: 900px) { .grilla-rivales { grid-template-columns: repeat(2, 1fr); } }
+
+/* ================================================================ Selector de rival (1v1 contra bots) */
+.rivales { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.rival-op { padding: 4px 4px 5px; border: 3px solid var(--linea); border-radius: 6px; background: var(--fondo); color: var(--texto);
+  cursor: var(--cursor-mano); display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.rival-op:hover { border-color: var(--suave); }
+.rival-op.activa { border-color: var(--acento); box-shadow: 0 3px 0 var(--naranja-osc); }
+.rival-op .mini, .rival-op .azar { display: block; width: 100%; aspect-ratio: 40 / 44; border-radius: 3px; overflow: hidden; }
+.rival-op .mini svg { width: 100%; height: 100%; display: block; }
+.rival-op .azar { display: grid; place-items: center; background: #2f4a56; font: 22px var(--arcade); color: var(--acento); }
+.rival-op b { font: 700 11px/1.1 var(--pixel); text-align: center; min-height: 2.2em; display: flex; align-items: center; }
+.rival-estilo { margin-top: 8px; font-size: 14px; color: var(--suave); min-height: 2.6em; }
+@media (max-width: 520px) { .rivales { grid-template-columns: repeat(3, 1fr); } }

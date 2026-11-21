@@ -3,6 +3,7 @@
  * Todo es puro y serializable a JSON: la sala se guarda entera en el almacenamiento.
  */
 import { decidirBot, type Indicacion, senaDeMano } from '../engine/bot.js';
+import { DATOS_RIVALES, datosRival } from '../engine/rivales.js';
 import {
   type Accion, type Config, type Efecto, type Partida, aplicar, dueloDe, equipoDe, ErrorJuego, manoTerminada, nuevaPartida,
   pendienteActivo, repartir,
@@ -46,6 +47,8 @@ export interface Sala {
   proximo: number;
   /** Indicaciones "voy"/"vení" de la baza actual. Clave: `mano:baza:asiento`. */
   indicaciones: Record<string, Indicacion>;
+  /** Rivales del modo 1v1 contra bots: asiento → id del rival. */
+  rivales?: Record<number, string>;
 }
 
 const MAX_EVENTOS = 120;
@@ -139,6 +142,23 @@ function nombreBot(sala: Sala, asiento: number): string {
   return [NOMBRES_BOT[asiento], ...NOMBRES_BOT].find((n) => !usados.has(n)) ?? `Bot ${asiento + 1}`;
 }
 
+/** Modo 1v1 contra un rival con personalidad ('azar' elige uno). */
+export function ponerRival(sala: Sala, id: string) {
+  if (sala.config.jugadores !== 2 || sala.fase !== 'lobby') throw new ErrorSala('Los rivales son para el 1v1 contra bots');
+  const r = id === 'azar' ? DATOS_RIVALES[Math.floor(Math.random() * DATOS_RIVALES.length)] : datosRival(id);
+  if (!r) throw new ErrorSala('Ese rival no existe');
+  sala.jugadores[1] = { nombre: r.nombre, token: null, bot: true };
+  sala.rivales = { 1: r.id };
+}
+
+function hablaRival(sala: Sala, que: (r: NonNullable<ReturnType<typeof datosRival>>, asiento: number) => string | null, retraso = 700) {
+  for (const [a, id] of Object.entries(sala.rivales ?? {})) {
+    const r = datosRival(id);
+    const texto = r && que(r, Number(a));
+    if (texto) evento(sala, { tipo: 'canto', asiento: Number(a), texto, retraso });
+  }
+}
+
 export function iniciar(sala: Sala, token: string, ahora: number) {
   exigirHost(sala, token);
   if (sala.fase === 'jugando') return;
@@ -146,6 +166,7 @@ export function iniciar(sala: Sala, token: string, ahora: number) {
   sala.partida = nuevaPartida(sala.config, Math.floor(Math.random() * sala.config.jugadores));
   sala.fase = 'jugando';
   nuevaMano(sala, ahora);
+  hablaRival(sala, (r) => r.frase, 1200);
 }
 
 export const revancha = iniciar;
@@ -185,6 +206,7 @@ function registrar(sala: Sala, efectos: Efecto[]) {
       case 'finPartida':
         sala.fase = 'fin';
         evento(sala, { tipo: 'finPartida', datos: { ganador: e.ganador } });
+        hablaRival(sala, (r, a) => (equipoDe(a) === e.ganador ? r.frases.gana : r.frases.pierde), 900);
         break;
     }
   }
@@ -279,7 +301,7 @@ export function tick(sala: Sala, ahora: number): boolean {
     const indicacion = sala.indicaciones[claveIndicacion(p, d.baza, bot)];
     let efectos: Efecto[];
     try {
-      efectos = aplicar(p, bot, decidirBot(p, bot, { indicacion }));
+      efectos = aplicar(p, bot, decidirBot(p, bot, { indicacion, perfil: datosRival(sala.rivales?.[bot])?.juego }));
     } catch (e) {
       if (!(e instanceof ErrorJuego)) throw e;
       continue;

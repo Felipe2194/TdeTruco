@@ -7,6 +7,7 @@ import type { Vista, VistaDuelo } from '../server/vista';
 import { imagenCarta } from './arte/cartas';
 import { CRT_HTML, FONDO_SVG, GRIETA_SVG, HACHA_SVG, MESA_DECO } from './arte/escena';
 import { avatarSVG, COLOR_EQUIPO } from './arte/personajes';
+import { rivalPorId, rivalSVG } from './arte/rivales';
 
 const CW = 130, CH = 195; // proporción 2:3, igual que la grilla de las cartas (64x96)
 
@@ -95,7 +96,7 @@ export class Mesa {
   private rel = (asiento: number) => (asiento - this.yo + this.n) % this.n;
 
   private configurar(v: Vista) {
-    const firma = `${v.config.jugadores}|${v.yo}|${v.jugadores.map((j) => j?.nombre ?? '').join(',')}`;
+    const firma = `${v.config.jugadores}|${v.yo}|${v.jugadores.map((j) => `${j?.nombre ?? ''}:${j?.rival ?? ''}`).join(',')}`;
     if (firma === this.firma) return;
     this.firma = firma;
     this.n = v.config.jugadores;
@@ -108,13 +109,16 @@ export class Mesa {
       const j = v.jugadores[a];
       const avatar = document.createElement('div');
       avatar.className = 'avatar';
-      avatar.innerHTML = avatarSVG(a, COLOR_EQUIPO[a % 2]);
+      const rival = rivalPorId(j?.rival);
+      avatar.innerHTML = rival ? rivalSVG(rival) : avatarSVG(a, COLOR_EQUIPO[a % 2]);
+      if (rival) avatar.classList.add('es-rival');
       avatar.style.setProperty('--desfase', `${-a * 0.7}s`);
       avatar.style.setProperty('--parpadeo', `${a * 1.1}s`);
       const placa = document.createElement('div');
       placa.className = 'placa';
       const companero = a % 2 === this.yo % 2;
-      placa.innerHTML = `<i style="background:${COLOR_EQUIPO[a % 2]}"></i>${escapar(j?.nombre ?? '—')}<small class="rol" data-rol="${companero ? 'compañero' : 'rival'}">${companero ? 'compañero' : 'rival'}</small>${FICHAS}`;
+      const rol = rival ? rival.apodo : companero ? 'compañero' : 'rival';
+      placa.innerHTML = `<i style="background:${COLOR_EQUIPO[a % 2]}"></i>${escapar(j?.nombre ?? '—')}<small class="rol" data-rol="${escapar(rol)}">${escapar(rol)}</small>${FICHAS}`;
       this.capa.append(avatar, placa);
       this.lugares[a] = { avatar, placa, burbuja: this.crearBurbuja(), x: 0, borde: 0, ancho: 0, xoff: 0 };
     }

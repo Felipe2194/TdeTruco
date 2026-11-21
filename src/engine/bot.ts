@@ -1,5 +1,6 @@
 /* Jugador automático: decide con información propia (sus cartas y lo que hay en la mesa). */
 import { type Carta, poder, tantoEnvido } from './cartas.js';
+import type { Perfil } from './rivales.js';
 import {
   type Accion, type Partida, accionesPosibles, dueloDe, equipoDe, pendienteActivo, siguientesEnvido,
 } from './juego.js';
@@ -10,7 +11,12 @@ export interface ContextoBot {
   /** Lo que le dijo un compañero en esta baza. */
   indicacion?: Indicacion;
   rng?: () => number;
+  /** Personalidad (rivales del 1v1). Sin perfil juega como siempre. */
+  perfil?: Perfil;
 }
+
+/** Perfil neutro: con estos valores todos los ajustes valen cero. */
+const NEUTRO: Perfil = { truco: 0.5, envido: 0.5, mentira: 0.2 };
 
 const promedio = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
 
@@ -25,29 +31,34 @@ export function decidirBot(p: Partida, asiento: number, ctx: ContextoBot = {}): 
   const bazasGanadas = d.resultados.filter((r) => r === eq).length;
   const fuerza = promedio(mano.map(poder)) + bazasGanadas * 3 + (mano.some((c) => poder(c) >= 11) ? 2 : 0);
   const pend = pendienteActivo(d);
+  const pf = ctx.perfil ?? NEUTRO;
+  const dt = pf.truco - 0.5, de = pf.envido - 0.5, dm = pf.mentira - 0.2;
 
   if (pend?.tipo === 'envido') {
     const subir = siguientesEnvido(d.envido!.cadena);
     if (tanto >= 32 && subir.includes('falta') && rng() < 0.5) return { tipo: 'envido', canto: 'falta' };
     if (tanto >= 30 && subir.includes('real') && rng() < 0.5) return { tipo: 'envido', canto: 'real' };
-    if (tanto >= 27 || (tanto >= 24 && rng() < 0.3)) return { tipo: 'quiero' };
+    if (tanto >= 27 - de * 6 || (tanto >= 24 - de * 4 && rng() < 0.3 + dm * 0.5)) return { tipo: 'quiero' };
     return { tipo: 'noquiero' };
   }
 
   if (pend?.tipo === 'truco') {
-    if (acc.includes('envido') && tanto >= 28 && rng() < 0.8) return { tipo: 'envido', canto: tanto >= 31 ? 'real' : 'envido' };
+    if (acc.includes('envido') && tanto >= 28 - de * 6 && rng() < 0.8) return { tipo: 'envido', canto: tanto >= 31 ? 'real' : 'envido' };
     const nivel = d.truco.pendiente!.nivel;
-    if (acc.includes('truco') && fuerza >= 11 && rng() < 0.35) return { tipo: 'truco' };
-    const umbral = 6 + (nivel - 2) * 1.5;
-    if (fuerza >= umbral || rng() < 0.2) return { tipo: 'quiero' };
+    if (acc.includes('truco') && fuerza >= 11 - dt * 4 && rng() < 0.35 + dt * 0.5) return { tipo: 'truco' };
+    const umbral = 6 + (nivel - 2) * 1.5 - dt * 3;
+    if (fuerza >= umbral || rng() < 0.2 + dm * 0.5) return { tipo: 'quiero' };
     return { tipo: 'noquiero' };
   }
 
   // Es su turno.
-  if (acc.includes('envido') && tanto >= 27 && rng() < 0.6) {
+  if (acc.includes('envido') && tanto >= 27 - de * 8 && rng() < 0.6 + de * 0.6) {
     return { tipo: 'envido', canto: tanto >= 31 && rng() < 0.5 ? 'real' : 'envido' };
   }
-  if (acc.includes('truco') && fuerza >= 10 && rng() < 0.3) return { tipo: 'truco' };
+  // Los mentirosos a veces cantan sin tener nada.
+  if (acc.includes('envido') && dm > 0 && rng() < dm * 0.15) return { tipo: 'envido', canto: 'envido' };
+  if (acc.includes('truco') && fuerza >= 10 - dt * 4 && rng() < 0.3 + dt * 0.5) return { tipo: 'truco' };
+  if (acc.includes('truco') && dm > 0 && rng() < dm * 0.3) return { tipo: 'truco' };
   return { tipo: 'jugar', carta: elegirCarta(p, asiento, ctx.indicacion) };
 }
 

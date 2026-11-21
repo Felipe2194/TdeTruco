@@ -23,7 +23,7 @@ export interface Vista {
   config: Config;
   yo: number;
   esHost: boolean;
-  jugadores: ({ nombre: string; bot: boolean; equipo: Equipo } | null)[];
+  jugadores: ({ nombre: string; bot: boolean; equipo: Equipo; rival?: string } | null)[];
   puntos: [number, number];
   mano: number;
   numeroMano: number;
@@ -55,7 +55,7 @@ export function construirVista(sala: Sala, token: string | null, desde = 0): Vis
     config: sala.config,
     yo,
     esHost: !!token && token === sala.host,
-    jugadores: sala.jugadores.map((j, i) => (j ? { nombre: j.nombre, bot: j.bot, equipo: (i % 2) as Equipo } : null)),
+    jugadores: sala.jugadores.map((j, i) => (j ? { nombre: j.nombre, bot: j.bot, equipo: (i % 2) as Equipo, rival: sala.rivales?.[i] } : null)),
     puntos: p?.puntos ?? [0, 0],
     mano: p?.mano ?? 0,
     numeroMano: p?.numeroMano ?? 0,
