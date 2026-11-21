@@ -281,14 +281,6 @@ html, body { cursor: var(--cursor); }
 @media (max-aspect-ratio: 5/4) {
   #revolver, #atado, #facon, #cenicero { display: none; }
 }
-#girar { display: none; }
-@media (max-aspect-ratio: 4/5) {
-  body.en-mesa #girar { display: grid; position: fixed; inset: 0; z-index: 40; place-items: center; padding: 24px; background: rgba(15,26,30,.92); }
-  #girar .tarjeta { text-align: center; font: 13px/1.8 var(--arcade); color: var(--acento); width: auto; }
-  #girar .telefono { width: 44px; height: 76px; margin: 0 auto 22px; border: 6px solid var(--texto); border-radius: 6px; box-shadow: 0 0 0 4px var(--k);
-    animation: girar-tel 2s steps(4) infinite; }
-  @keyframes girar-tel { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
-}
 
 /* Con 6 u 8 jugadores la mesa se llena de cartas: quedan el mate, el facón y el cenicero, más abajo. */
 body[data-jugadores="6"] :is(#revolver, #atado), body[data-jugadores="8"] :is(#revolver, #atado) { display: none; }
@@ -325,3 +317,54 @@ body[data-jugadores="6"] #cenicero, body[data-jugadores="8"] #cenicero { left: c
 .rival-op b { font: 700 11px/1.1 var(--pixel); text-align: center; min-height: 2.2em; display: flex; align-items: center; }
 .rival-estilo { margin-top: 8px; font-size: 14px; color: var(--suave); min-height: 2.6em; }
 @media (max-width: 520px) { .rivales { grid-template-columns: repeat(3, 1fr); } }
+
+/* ================================================================ Celular en vertical */
+@media (orientation: portrait) and (max-width: 820px) {
+  #hud .panel { zoom: 1; }
+  .deco { display: none !important; }
+  /* Tanteador fijo arriba, grande. */
+  #marcador { top: 6px; left: 6px; right: 6px; width: auto; padding: 6px 12px; display: flex; align-items: center; gap: 10px; border-width: 3px; }
+  #marcador .titulo { margin: 0; font-size: 8px; white-space: nowrap; }
+  #marcador .cols { flex: 1; justify-content: flex-end; gap: 16px; }
+  #marcador .cols > div { display: flex; align-items: baseline; gap: 6px; }
+  #marcador [data-por], #marcador .leyenda { display: none; }
+  #marcador .eq { font-size: 14px; }
+  #marcador .num { font-size: 24px; line-height: 1.2; }
+  /* Cómo viene la mano: una línea debajo. */
+  #info { top: 62px; left: 6px; right: 6px; min-width: 0; padding: 4px 10px; font-size: 13px; line-height: 1.5; display: flex; flex-wrap: wrap; gap: 0 12px; border-width: 3px; }
+  #info .sala { display: none; }
+  /* Acciones: barra de ancho completo con botones grandes. */
+  #acciones { left: 0; right: 0; bottom: 0; width: auto; border-radius: 10px 10px 0 0; border-bottom: 0; padding: 8px 8px calc(8px + env(safe-area-inset-bottom)); }
+  #acciones .cabecera { display: none; }
+  #acciones.plegado .cuerpo { display: block; }
+  #acciones .cuerpo { margin-top: 0; }
+  #estado { font-size: 15px; margin-bottom: 6px; text-align: center; min-height: 0; }
+  #acciones .botones { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  #acciones .btn { font-size: 15px; min-height: 48px; padding: 8px 4px 7px; margin-bottom: 4px; letter-spacing: 0; }
+  #acciones .companero { margin-top: 4px; padding-top: 6px; display: flex; align-items: center; gap: 8px; }
+  #acciones .companero .titulo { margin: 0; flex: none; }
+  #acciones .companero .botones { flex: 1; grid-template-columns: 1fr 1fr; }
+  /* Señas: botón plegable encima de la barra. */
+  #senas { left: 6px; right: auto; bottom: calc(var(--alto-acciones, 200px) + 6px); width: calc(100% - 12px); max-width: 420px; padding: 7px 10px; }
+  #senas.plegado { width: auto; }
+  .panel button.sena { min-height: 44px; }
+  .placa { font-size: 8px; padding: 4px 6px 3px; } .placa small { font-size: 10px; } .placa .ficha { font-size: 6px; padding: 2px 3px 1px; }
+  .burbuja { font-size: 11px; padding: 7px 9px 5px; }
+  #cartel { top: 38%; font-size: 24px; padding: 16px 20px 12px; } #cartel small { font-size: 14px; }
+  #hachazo .titulo-hacha { font-size: 34px; }
+}
+
+@media (orientation: portrait) and (max-width: 820px) {
+  .placa { overflow: hidden; text-overflow: ellipsis; }
+  body.mesa-apretada .placa { font-size: 7px; padding: 3px 4px 2px; }
+  body.mesa-apretada .placa small, body.mesa-apretada .placa i { display: none; }
+  body.mesa-apretada .placa .ficha { display: none !important; }
+  body.mesa-apretada .placa.turno { border-color: var(--acento); }
+}
+/* Celular en horizontal: botones de acción tocables con el dedo. */
+@media (max-height: 460px) and (orientation: landscape) {
+  #hud #acciones { zoom: .66; }
+  #hud #acciones .btn { min-height: 52px; }
+  #hud #marcador { zoom: .6; }
+  #hud #info { zoom: .55; }
+}

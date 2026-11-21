@@ -58,11 +58,23 @@ export class Hud {
         </div>
       </div>`;
     contenedor.appendChild(this.raiz);
+    const acciones = this.q<HTMLDivElement>('#acciones');
+    let alto = 0;
+    new ResizeObserver(() => {
+      const h = acciones.offsetHeight;
+      if (h === alto) return;
+      alto = h;
+      document.documentElement.style.setProperty('--alto-acciones', `${h}px`);
+      dispatchEvent(new Event('resize'));
+    }).observe(acciones);
+    new ResizeObserver(() => dispatchEvent(new Event('resize'))).observe(this.q('#info'));
+    const enVertical = matchMedia('(orientation: portrait) and (max-width: 820px), (max-height: 460px)').matches;
 
     this.raiz.querySelectorAll<HTMLButtonElement>('[data-plegar]').forEach((b) => {
       const id = b.dataset.plegar!;
       const panel = this.q<HTMLDivElement>('#' + id);
-      if (localStorage.getItem('truco-plegado-' + id) === '1') panel.classList.add('plegado');
+      const guardado = localStorage.getItem('truco-plegado-' + id);
+      if (guardado === '1' || (guardado === null && enVertical && id === 'senas')) panel.classList.add('plegado');
       b.onclick = () => {
         panel.classList.toggle('plegado');
         localStorage.setItem('truco-plegado-' + id, panel.classList.contains('plegado') ? '1' : '0');

@@ -57,6 +57,7 @@ export class Mesa {
   private repartiendo: Promise<void> | null = null;
   /** Carta propia que ya salió para la mesa y espera la confirmación del servidor. */
   private enviando: string | null = null;
+  private separacion = Infinity;
   private mazo: HTMLDivElement | null = null;
   private placaYo: HTMLDivElement;
   private grieta: HTMLDivElement;
@@ -76,7 +77,6 @@ export class Mesa {
       ${CRT_HTML}`);
     this.capa = raiz.querySelector('#capa-mesa')!;
     this.grieta = raiz.querySelector('#grieta')!;
-    document.body.insertAdjacentHTML('beforeend', '<div id="girar"><div class="tarjeta"><div class="telefono"></div>Girá el celular para jugar</div></div>');
     this.placaYo = document.createElement('div');
     this.placaYo.className = 'placa placa-yo';
     this.capa.appendChild(this.placaYo);
@@ -92,7 +92,17 @@ export class Mesa {
   }
 
   // ---------------------------------------------------------------- Distribución
-  private u = () => Math.min(innerHeight / 900, innerWidth / 1600);
+  /** Celular en vertical: la mesa se reacomoda (personajes arriba, acciones abajo). */
+  private vertical = () => innerHeight > innerWidth;
+  private u = () => (this.vertical() ? Math.min(innerWidth / 560, innerHeight / 1150) : Math.min(innerHeight / 900, innerWidth / 1600));
+  /** Mesa elíptica: borde superior (vh) y radios (vw, vh). Se aplica también al CSS de #mesa. */
+  private geo = () => (this.vertical() ? { top: this.n >= 6 ? 27 : 30, rx: 95, ry: 62 } : { top: 38, rx: 75, ry: 55 });
+  /** Centro vertical de la zona de juego (fracción del alto). */
+  private cy = () => (this.vertical() ? 0.47 : PARAMS[this.n].cy);
+  /** Alto que ocupa la barra de acciones abajo (solo en vertical). */
+  private reserva = () => (this.vertical() ? (document.getElementById('acciones')?.offsetHeight ?? 200) + 6 : 0);
+  /** Distancia horizontal de las cartas jugadas al centro, sin salirse de la pantalla. */
+  private sx = (base: number) => Math.min(base * this.u(), innerWidth * 0.3);
   private rel = (asiento: number) => (asiento - this.yo + this.n) % this.n;
 
   private configurar(v: Vista) {
@@ -159,10 +169,20 @@ export class Mesa {
     const W = innerWidth, H = innerHeight;
     const otros = this.n - 1;
     const factor = PARAMS[this.n].avatar;
-    const A = 0.36;
+    const vertical = this.vertical();
+    const A = vertical ? 0.41 : 0.36;
+    const g = this.geo();
+    const mesa = document.getElementById('mesa');
+    if (mesa) Object.assign(mesa.style, { top: `${g.top}vh`, width: `${g.rx * 2}vw`, height: `${g.ry * 2}vh` });
     // Alto de los personajes: el de la pantalla, sin que se encimen con el vecino si la pantalla es angosta.
     const separacion = otros > 1 ? (2 * A * W) / (otros - 1) : Infinity;
-    const uAvatar = Math.min(H / 900, (separacion * 1.25) / (0.76 * 33 * factor * 9));
+    const uAvatar = Math.min(H / 900, (separacion * (vertical ? 1.05 : 1.25)) / (0.76 * 33 * factor * 9));
+    this.separacion = separacion;
+    // En vertical los personajes no pueden subir por encima de la barra de información.
+    const techo = vertical ? (document.getElementById('info')?.getBoundingClientRect().bottom || 110) + 4 : -Infinity;
+    document.body.classList.toggle('mesa-apretada', vertical && this.n >= 6);
+    // Cuánto se esconde cada personaje detrás del borde de la mesa (vh). En vertical son chicos: asoman más.
+    const hundido = vertical ? 1.5 : 5;
     for (let a = 0; a < this.n; a++) {
       const l = this.lugares[a];
       if (!l) continue;
@@ -170,30 +190,42 @@ export class Mesa {
       const f = otros === 1 ? 0.5 : (r - 1) / (otros - 1);
       const xoff = (0.5 - f) * 2 * A; // a tu derecha el siguiente en jugar
       const cercania = Math.abs(xoff) / A;
-      const altoPx = (33 + 5 * cercania) * factor * 9 * uAvatar;
+      const ratio = (xoff * W) / ((g.rx / 100) * W);
+      const borde = g.top + g.ry - g.ry * Math.sqrt(Math.max(0, 1 - ratio * ratio));
+      let altoPx = (33 + 5 * cercania) * factor * 9 * uAvatar;
+      if (vertical) altoPx = Math.max(40, Math.min((33 - 3 * cercania) * factor * 9 * uAvatar, ((borde + hundido) * H) / 100 - techo));
       const anchoPx = altoPx * 0.76;
-      const ratio = (xoff * W) / (0.75 * W);
-      const borde = 93 - 55 * Math.sqrt(Math.max(0, 1 - ratio * ratio));
       const x = W / 2 + xoff * W;
       Object.assign(l, { x, borde, ancho: anchoPx, xoff: xoff / A });
       const st = l.avatar.style;
       st.width = `${anchoPx}px`;
       st.height = `${altoPx}px`;
       st.left = `${x - anchoPx / 2}px`;
-      st.top = `${((borde + 5) * H) / 100 - altoPx}px`;
+      st.top = `${((borde + hundido) * H) / 100 - altoPx}px`;
       // Siempre detrás de la mesa (z 3); los de los costados, delante de los del fondo.
       st.zIndex = cercania > 0.5 ? '2' : '1';
       st.transform = xoff === 0 ? '' : `perspective(900px) rotateY(${-Math.sign(xoff) * 22 * cercania}deg)`;
       // La placa va sobre el pecho, por encima del borde de la mesa (así no la tapan las cartas jugadas).
-      l.placa.style.left = `${x}px`;
-      l.placa.style.top = `${borde - 3.4}vh`;
+      l.placa.style.maxWidth = vertical && this.n >= 6 ? `${Math.max(40, separacion - 4)}px` : '';
+      const mitad = l.placa.offsetWidth / 2;
+      l.placa.style.left = `${mitad ? Math.min(W - mitad - 3, Math.max(mitad + 3, x)) : x}px`;
+      // En vertical con mucha gente la placa va arriba de la cabeza (si no, tapa la cara).
+      l.placa.style.top = vertical && this.n >= 6 ? `${((borde + hundido) * H) / 100 - altoPx - 14}px` : `${borde - 3.4}vh`;
       l.burbuja.style.left = `${x}px`;
-      l.burbuja.style.top = `${((borde + 5) * H) / 100 - altoPx + 6}px`;
+      l.burbuja.style.top = `${((borde + hundido) * H) / 100 - altoPx + 6}px`;
     }
-    this.placaYo.style.left = `${W / 2 - 300 * this.u()}px`;
-    this.placaYo.style.top = `${H - 64 * this.u()}px`;
-    this.burbujaYo.style.left = `${W / 2 - 300 * this.u()}px`;
-    this.burbujaYo.style.top = `${H - 150 * this.u()}px`;
+    if (this.vertical()) {
+      const manoY = this.manoY();
+      this.placaYo.style.left = `${Math.max(44, W * 0.16)}px`;
+      this.placaYo.style.top = `${manoY - 100 * this.u()}px`;
+      this.burbujaYo.style.left = `${W / 2}px`;
+      this.burbujaYo.style.top = `${manoY - 95 * this.u()}px`;
+    } else {
+      this.placaYo.style.left = `${W / 2 - 300 * this.u()}px`;
+      this.placaYo.style.top = `${H - 64 * this.u()}px`;
+      this.burbujaYo.style.left = `${W / 2 - 300 * this.u()}px`;
+      this.burbujaYo.style.top = `${H - 150 * this.u()}px`;
+    }
   }
 
   private posManoAjena(a: number, i: number, total: number): Transformacion {
@@ -205,7 +237,8 @@ export class Mesa {
     const x = l.x + lado * l.ancho * 0.4;
     const y = (l.borde - 8) * innerHeight / 100;
     const off = i - (total - 1) / 2;
-    return { x: x + off * 20 * u * factor, y: y + Math.abs(off) * 4 * u, ry: 180, rz: off * 13 + lado * 8, s: 0.36 * u * factor };
+    const k = this.vertical() ? Math.min(1, this.separacion / 150) : 1;
+    return { x: x + off * 20 * u * factor * k, y: y + Math.abs(off) * 4 * u, ry: 180, rz: off * 13 + lado * 8, s: 0.36 * u * factor * k };
   }
 
   private posJugada(a: number, baza: number, giro: number): Transformacion {
@@ -214,6 +247,10 @@ export class Mesa {
     const s = ((153 * u) / (CH * 0.95)) * P.escala;
     const l = this.lugares[a];
     if (this.n >= 6 && l) {
+      if (this.vertical()) {
+        const sv = Math.min(s, (this.separacion - 6) / CW);
+        return { x: l.x + (baza - 1) * 4 * u, y: (l.borde * innerHeight) / 100 + (CH * sv) / 2 + 10 + baza * 9 * u, rx: 10, rz: giro, s: sv };
+      }
       return {
         x: innerWidth / 2 + (l.x - innerWidth / 2) * 0.88 + (baza - 1) * 16 * u,
         y: (l.borde * innerHeight) / 100 + 92 * u * P.escala + baza * 7 * u,
@@ -222,18 +259,22 @@ export class Mesa {
     }
     const psi = (this.rel(a) / this.n) * Math.PI * 2;
     return {
-      x: innerWidth / 2 + Math.sin(psi) * P.sx * u + (baza - 1) * 30 * u * P.escala,
-      y: innerHeight * P.cy + Math.cos(psi) * P.sy * u,
+      x: innerWidth / 2 + Math.sin(psi) * this.sx(P.sx) + (baza - 1) * 30 * u * P.escala,
+      y: innerHeight * this.cy() + Math.cos(psi) * (this.vertical() ? 72 : P.sy * u),
       rx: 16, rz: giro, s,
     };
   }
 
+  /** Altura de tu mano: en vertical, justo arriba de la barra de acciones. */
+  private manoY = () => (this.vertical() ? innerHeight - this.reserva() - 58 * this.u() : innerHeight - 88 * this.u());
+
   private posEnMano(i: number, total: number): Transformacion {
     const off = i - (total - 1) / 2, u = this.u(), arriba = i === this.hover;
+    const escala = this.vertical() ? 0.88 : 1.1;
     return {
       x: innerWidth / 2 + off * 122 * u,
-      y: innerHeight - 88 * u + Math.abs(off) * 12 * u - (arriba ? 42 * u : 0),
-      rz: off * 8, s: (arriba ? 1.16 : 1.1) * u,
+      y: this.manoY() + Math.abs(off) * 12 * u - (arriba ? 42 * u : 0),
+      rz: off * 8, s: (arriba ? escala + 0.06 : escala) * u,
     };
   }
 
@@ -246,8 +287,8 @@ export class Mesa {
     if (!v || !v.duelos.length) return { x: innerWidth / 2, y: innerHeight * 0.56, rx: 40, ry: 180, s: 0.5 * this.u() };
     const P = PARAMS[this.n], u = this.u();
     const psi = (this.rel(this.repartidor(v)) / this.n) * Math.PI * 2;
-    const ax = innerWidth / 2 + Math.sin(psi) * Math.max(P.sx + 100, 300) * u;
-    const ay = innerHeight * P.cy + Math.cos(psi) * (P.sy + 25) * u;
+    const ax = innerWidth / 2 + Math.sin(psi) * Math.min(Math.max(P.sx + 100, 300) * u, innerWidth * 0.36);
+    const ay = innerHeight * this.cy() + Math.cos(psi) * (P.sy + 25) * u;
     const k = 160 * u * Math.max(P.escala, 0.85);
     return { x: ax + Math.cos(psi) * k, y: ay - Math.sin(psi) * k * 0.45, rx: 38, ry: 180, rz: (-psi * 180) / Math.PI + 90, s: 0.42 * u * P.escala };
   }
@@ -474,7 +515,7 @@ export class Mesa {
     const capa = document.createElement('div');
     capa.id = 'hachazo';
     capa.style.setProperty('--cx', `${innerWidth / 2}px`);
-    capa.style.setProperty('--cy', `${innerHeight * P.cy}px`);
+    capa.style.setProperty('--cy', `${innerHeight * this.cy()}px`);
     const colores = ['#4fae78', '#2a6a47', '#c97a3a', '#7a4420', '#f4f1e8'];
     let astillas = '';
     for (let i = 0; i < 18; i++) {
